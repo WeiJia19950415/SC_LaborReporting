@@ -74,6 +74,7 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
 
         if (!hostingEnvironment.IsDevelopment())
         {
+            //生产环境
             PreConfigure<AbpOpenIddictAspNetCoreOptions>(options =>
             {
                 options.AddDevelopmentEncryptionAndSigningCertificate = false;
@@ -81,8 +82,18 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
 
             PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
             {
+                //
+                serverBuilder.SetAccessTokenLifetime(TimeSpan.FromMinutes(20));
                 serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
                 serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
+            });
+        }
+        else
+        {   //开发环境
+            PreConfigure<OpenIddictServerBuilder>(serverBuilder =>
+            {
+                //设置访问令牌的生命周期为7天，默认是1小时
+                serverBuilder.SetAccessTokenLifetime(TimeSpan.FromDays(7));
             });
         }
     }
@@ -143,6 +154,13 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
         ConfigureHealthChecks(context);
         ConfigureSwagger(context, configuration);
         ConfigureVirtualFileSystem(context);
+
+        context.Services.ConfigureApplicationCookie(options =>
+        {
+            // 设置Cookie过期时间为20分钟，默认是14天
+            options.ExpireTimeSpan = TimeSpan.FromMinutes(20); 
+            options.SlidingExpiration = true; // 启用滑动过期，这样每次请求都会刷新过期时间
+        });
     }
 
     private void ConfigureStudio(IHostEnvironment hostingEnvironment)
@@ -199,7 +217,6 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
             );
         });
     }
-
 
     private void ConfigureVirtualFileSystem(ServiceConfigurationContext context)
     {
@@ -265,7 +282,6 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
     {
         context.Services.AddSC_LaborReportingHealthChecks();
     }
-
 
     public override void OnApplicationInitialization(ApplicationInitializationContext context)
     {
