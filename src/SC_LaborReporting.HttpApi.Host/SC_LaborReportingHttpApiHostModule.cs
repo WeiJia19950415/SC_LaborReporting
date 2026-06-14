@@ -40,6 +40,7 @@ using Volo.Abp.Studio.Client.AspNetCore;
 using Volo.Abp.Swashbuckle;
 using Volo.Abp.UI.Navigation.Urls;
 using Volo.Abp.VirtualFileSystem;
+using Volo.Abp.AspNetCore.Mvc.AntiForgery;
 
 namespace SC_LaborReporting;
 
@@ -103,6 +104,11 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
         var configuration = context.Services.GetConfiguration();
         var services = context.Services;
         var hostingEnvironment = context.Services.GetHostingEnvironment();
+
+        Configure<AbpAntiForgeryOptions>(options =>
+        {
+            options.AutoValidate = false;
+        });
 
         if (!configuration.GetValue<bool>("App:DisablePII"))
         {
@@ -241,6 +247,7 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
             options.ConventionalControllers.Create(typeof(SC_LaborReportingApplicationModule).Assembly);
         });
     }
+
 
     private static void ConfigureSwagger(ServiceConfigurationContext context, IConfiguration configuration)
     {
