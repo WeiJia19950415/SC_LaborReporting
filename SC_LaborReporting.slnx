@@ -1,0 +1,13 @@
+<Solution>
+    <Folder Name="/src/">
+        <Project Path="src/SC_LaborReporting.Application.Contracts/SC_LaborReporting.Application.Contracts.csproj" />
+        <Project Path="src/SC_LaborReporting.Application/SC_LaborReporting.Application.csproj" />
+        <Project Path="src/SC_LaborReporting.DbMigrator/SC_LaborReporting.DbMigrator.csproj" />
+        <Project Path="src/SC_LaborReporting.Domain.Shared/SC_LaborReporting.Domain.Shared.csproj" />
+        <Project Path="src/SC_LaborReporting.Domain/SC_LaborReporting.Domain.csproj" />
+        <Project Path="src/SC_LaborReporting.EntityFrameworkCore/SC_LaborReporting.EntityFrameworkCore.csproj" />
+        <Project Path="src/SC_LaborReporting.HttpApi.Client/SC_LaborReporting.HttpApi.Client.csproj" />
+        <Project Path="src/SC_LaborReporting.HttpApi.Host/SC_LaborReporting.HttpApi.Host.csproj" />
+        <Project Path="src/SC_LaborReporting.HttpApi/SC_LaborReporting.HttpApi.csproj" />
+    </Folder>
+</Solution>

@@ -1,0 +1,109 @@
+{
+  "template": "app",
+  "imports": {
+    "Volo.Abp.LeptonXLiteTheme": {
+      "version": "5.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.Account": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.OpenIddict": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.Identity": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.TenantManagement": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.SettingManagement": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.PermissionManagement": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    },
+    "Volo.Abp.FeatureManagement": {
+      "version": "10.4.1",
+      "isInstalled": true,
+      "creationTime": "06/12/2026 12:20:01 +00:00"
+    }
+  },
+  "folders": {
+    "items": {
+      "src": {},
+      "test": {}
+    }
+  },
+  "packages": {
+    "SC_LaborReporting.Application": {
+      "path": "src/SC_LaborReporting.Application/SC_LaborReporting.Application.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.Application.Tests": {
+      "path": "test/SC_LaborReporting.Application.Tests/SC_LaborReporting.Application.Tests.abppkg",
+      "folder": "test"
+    },
+    "SC_LaborReporting.Domain.Shared": {
+      "path": "src/SC_LaborReporting.Domain.Shared/SC_LaborReporting.Domain.Shared.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.Application.Contracts": {
+      "path": "src/SC_LaborReporting.Application.Contracts/SC_LaborReporting.Application.Contracts.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.HttpApi": {
+      "path": "src/SC_LaborReporting.HttpApi/SC_LaborReporting.HttpApi.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.HttpApi.Client": {
+      "path": "src/SC_LaborReporting.HttpApi.Client/SC_LaborReporting.HttpApi.Client.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.EntityFrameworkCore.Tests": {
+      "path": "test/SC_LaborReporting.EntityFrameworkCore.Tests/SC_LaborReporting.EntityFrameworkCore.Tests.abppkg",
+      "folder": "test"
+    },
+    "SC_LaborReporting.EntityFrameworkCore": {
+      "path": "src/SC_LaborReporting.EntityFrameworkCore/SC_LaborReporting.EntityFrameworkCore.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.TestBase": {
+      "path": "test/SC_LaborReporting.TestBase/SC_LaborReporting.TestBase.abppkg",
+      "folder": "test"
+    },
+    "SC_LaborReporting.Domain.Tests": {
+      "path": "test/SC_LaborReporting.Domain.Tests/SC_LaborReporting.Domain.Tests.abppkg",
+      "folder": "test"
+    },
+    "SC_LaborReporting.HttpApi.Client.ConsoleTestApp": {
+      "path": "test/SC_LaborReporting.HttpApi.Client.ConsoleTestApp/SC_LaborReporting.HttpApi.Client.ConsoleTestApp.abppkg",
+      "folder": "test"
+    },
+    "SC_LaborReporting.DbMigrator": {
+      "path": "src/SC_LaborReporting.DbMigrator/SC_LaborReporting.DbMigrator.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.HttpApi.Host": {
+      "path": "src/SC_LaborReporting.HttpApi.Host/SC_LaborReporting.HttpApi.Host.abppkg",
+      "folder": "src"
+    },
+    "SC_LaborReporting.Domain": {
+      "path": "src/SC_LaborReporting.Domain/SC_LaborReporting.Domain.abppkg",
+      "folder": "src"
+    }
+  }
+}
