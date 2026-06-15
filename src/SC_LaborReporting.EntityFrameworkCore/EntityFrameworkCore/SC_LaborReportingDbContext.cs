@@ -1,6 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.Books;
-using SC_LaborReporting.Departments;
+using SC_LaborReporting.LaborCategories;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
@@ -41,10 +41,13 @@ public class SC_LaborReportingDbContext :
     public DbSet<IdentityUserDelegation> UserDelegations { get; set; }
     public DbSet<IdentitySession> Sessions { get; set; }
 
+    public DbSet<LaborCategory> LaborCategories { get; set; }
+    public DbSet<LaborCategoryDepartment> LaborCategoryDepartments { get; set; }
+    public DbSet<LaborCategoryRole> LaborCategoryRoles { get; set; }
+
     // Tenant Management
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<TenantConnectionString> TenantConnectionStrings { get; set; }
-    public DbSet<Department> Departments { get; set; }
     #endregion
 
     public SC_LaborReportingDbContext(DbContextOptions<SC_LaborReportingDbContext> options)
@@ -77,18 +80,12 @@ public class SC_LaborReportingDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(128);
         });
 
-        //数据库关于映射
-        builder.Entity<Department>(b =>
+        builder.Entity<LaborCategory>(b =>
         {
-            b.ToTable("AppDepartments"); // 生成的数据库表名
-            b.ConfigureByConvention(); // 这一行极其重要，它会让 ABP 自动配置逻辑删除、审计字段
-
-            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
-            // 配置树形结构的自引用外键
-            b.HasOne(x => x.Parent)
-             .WithMany(x => x.Children)
-             .HasForeignKey(x => x.ParentId)
-             .OnDelete(Microsoft.EntityFrameworkCore.DeleteBehavior.NoAction); // 防止 SQL Server 的级联删除报错
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "LaborCategories", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
+            b.HasMany(x => x.Roles).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
         });
     }
 }

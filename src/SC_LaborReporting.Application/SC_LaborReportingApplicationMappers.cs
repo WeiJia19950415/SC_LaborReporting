@@ -1,6 +1,8 @@
 using Riok.Mapperly.Abstractions;
 using SC_LaborReporting.Books;
 using SC_LaborReporting.Departments;
+using SC_LaborReporting.LaborCategories;
+using Volo.Abp.Identity;
 using Volo.Abp.Mapperly;
 
 namespace SC_LaborReporting;
@@ -23,16 +25,17 @@ public partial class SC_LaborReportingCreateUpdateBookDtoToBookMapper : MapperBa
 
 // 1. 将 数据库实体(Department) 转换为 返回前端的(DepartmentDto)
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class SC_LaborReportingDepartmentToDepartmentDtoMapper : MapperBase<Department, DepartmentDto>
+public partial class SC_LaborReportingDepartmentToDepartmentDtoMapper : MapperBase<OrganizationUnit, DepartmentDto>
 {
-    public override partial DepartmentDto Map(Department source);
-    public override partial void Map(Department source, DepartmentDto destination);
+    public override partial DepartmentDto Map(OrganizationUnit source);
+    public override partial void Map(OrganizationUnit source, DepartmentDto destination);
 }
 
-// 2. 将 前端传来的(CreateUpdateDepartmentDto) 转换为 数据库实体(Department)
+
 [Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
-public partial class SC_LaborReportingCreateUpdateDepartmentDtoToDepartmentMapper : MapperBase<CreateUpdateDepartmentDto, Department>
+public partial class SC_LaborReportingLaborCategorytoLaborCategoryDtoMapper : MapperBase<LaborCategory, LaborCategoryDto>
 {
-    public override partial Department Map(CreateUpdateDepartmentDto source);
-    public override partial void Map(CreateUpdateDepartmentDto source, Department destination);
+    public override partial LaborCategoryDto Map(LaborCategory source);
+    public override partial void Map(LaborCategory source, LaborCategoryDto destination);
 }
+
