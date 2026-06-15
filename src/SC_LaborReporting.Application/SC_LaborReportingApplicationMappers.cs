@@ -2,6 +2,8 @@ using Riok.Mapperly.Abstractions;
 using SC_LaborReporting.Books;
 using SC_LaborReporting.Departments;
 using SC_LaborReporting.LaborCategories;
+using SC_LaborReporting.LaborReports;
+using SC_LaborReporting.Projects;
 using Volo.Abp.Identity;
 using Volo.Abp.Mapperly;
 
@@ -39,3 +41,24 @@ public partial class SC_LaborReportingLaborCategorytoLaborCategoryDtoMapper : Ma
     public override partial void Map(LaborCategory source, LaborCategoryDto destination);
 }
 
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SC_LaborReportingProjectToProjectDtoMapper : MapperBase<Project, ProjectDto>
+{
+    public override partial ProjectDto Map(Project source);
+    public override partial void Map(Project source, ProjectDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SC_LaborReportingCreateUpdateProjectDtoToProjectMapper : MapperBase<CreateUpdateProjectDto, Project>
+{
+    public override partial Project Map(CreateUpdateProjectDto source);
+    public override partial void Map(CreateUpdateProjectDto source, Project destination);
+}
+
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SC_LaborReportingLaborReportMapper : MapperBase<LaborReportDetail, LaborReportItemDto>
+{
+    public override partial LaborReportItemDto Map(LaborReportDetail source);
+    public override partial void Map(LaborReportDetail source, LaborReportItemDto destination);
+}

@@ -1,6 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.Books;
 using SC_LaborReporting.LaborCategories;
+using SC_LaborReporting.LaborReports;
+using SC_LaborReporting.Projects;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
@@ -44,6 +46,9 @@ public class SC_LaborReportingDbContext :
     public DbSet<LaborCategory> LaborCategories { get; set; }
     public DbSet<LaborCategoryDepartment> LaborCategoryDepartments { get; set; }
     public DbSet<LaborCategoryRole> LaborCategoryRoles { get; set; }
+    public DbSet<Project> Projects { get; set; }
+    public DbSet<LaborReport> LaborReports { get; set; }
+    public DbSet<LaborReportDetail> LaborReportDetails { get; set; }
 
     // Tenant Management
     public DbSet<Tenant> Tenants { get; set; }
@@ -86,6 +91,33 @@ public class SC_LaborReportingDbContext :
             b.ConfigureByConvention();
             b.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
             b.HasMany(x => x.Roles).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
+        });
+
+        builder.Entity<Project>(b =>
+        {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "Projects", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(64);
+        });
+
+        builder.Entity<LaborReport>(b =>
+        {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "LaborReports", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasMany(x => x.Details)
+             .WithOne(x => x.LaborReport)
+             .HasForeignKey(x => x.LaborReportId)
+             .IsRequired();
+        });
+
+        builder.Entity<LaborReportDetail>(b =>
+        {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "LaborReportDetails", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.LaborCategoryCode).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Hours).HasColumnType("decimal(18,2)");
+            b.Property(x => x.Jobresponsibilities).HasMaxLength(1024);
         });
     }
 }
