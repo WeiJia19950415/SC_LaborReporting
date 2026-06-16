@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SC_LaborReporting.LaborCategories;
+using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Services;
@@ -23,6 +24,8 @@ namespace SC_LaborReporting.LaborReports
         Task ApproveAsync(Guid reportId, Guid detailId);
 
         Task WithdrawAsync(Guid reportId, Guid detailId);
-        
+
+        Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate);
+
     }
 }

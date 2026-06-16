@@ -63,4 +63,22 @@ namespace SC_LaborReporting.LaborReports
         /// </summary>
         public string Jobresponsibilities { get; set; }
     }
+
+    public class LaborReportDailyStatusDto
+    {
+        public string Date { get; set; }
+        public decimal TotalEffectiveHours { get; set; }
+        /// <summary>
+        /// 审批通过的
+        /// </summary>
+        public List<Guid> ApprovedDetailIds { get; set; } = new List<Guid>();
+        /// <summary>
+        /// 待审批的
+        /// </summary>
+        public List<Guid> PendingDetailIds { get; set; } = new List<Guid>();
+        /// <summary>
+        /// 退回或撤销的
+        /// </summary>
+        public List<Guid> RejectedOrWithdrawnDetailIds { get; set; } = new List<Guid>();
+    }
 }

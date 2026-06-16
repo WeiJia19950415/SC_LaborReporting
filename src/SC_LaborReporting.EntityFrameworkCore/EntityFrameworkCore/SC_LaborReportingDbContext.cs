@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.Books;
 using SC_LaborReporting.LaborCategories;
 using SC_LaborReporting.LaborReports;
+using SC_LaborReporting.ProjectRoles;
 using SC_LaborReporting.Projects;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
@@ -45,7 +46,8 @@ public class SC_LaborReportingDbContext :
 
     public DbSet<LaborCategory> LaborCategories { get; set; }
     public DbSet<LaborCategoryDepartment> LaborCategoryDepartments { get; set; }
-    public DbSet<LaborCategoryRole> LaborCategoryRoles { get; set; }
+    public DbSet<ProjectRole> ProjectRoles { get; set; }
+    public DbSet<LaborCategoryProjectRole> LaborCategoryProjectRoles { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<LaborReport> LaborReports { get; set; }
     public DbSet<LaborReportDetail> LaborReportDetails { get; set; }
@@ -85,12 +87,17 @@ public class SC_LaborReportingDbContext :
             b.Property(x => x.Name).IsRequired().HasMaxLength(128);
         });
 
-        builder.Entity<LaborCategory>(b =>
-        {
-            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "LaborCategories", SC_LaborReportingConsts.DbSchema);
+        builder.Entity<ProjectRole>(b => {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "ProjectRoles", SC_LaborReportingConsts.DbSchema);
             b.ConfigureByConvention();
-            b.HasMany(x => x.Departments).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
-            b.HasMany(x => x.Roles).WithOne().HasForeignKey(x => x.LaborCategoryId).IsRequired();
+            b.Property(x => x.Name).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Code).IsRequired().HasMaxLength(64);
+        });
+
+        builder.Entity<LaborCategoryProjectRole>(b => {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "LaborCategoryProjectRoles", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.HasKey(x => new { x.LaborCategoryId, x.ProjectRoleId });
         });
 
         builder.Entity<Project>(b =>

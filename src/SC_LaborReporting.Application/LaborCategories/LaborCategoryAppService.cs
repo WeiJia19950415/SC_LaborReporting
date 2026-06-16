@@ -26,7 +26,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
     public async Task<ListResultDto<LaborCategoryDto>> GetListAsync()
     {
         // ⭐ 1. 贪婪加载关联子表
-        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.Roles);
+        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
         var categories = query.ToList();
         categories.Sort((x, y) => string.Compare(x.Code, y.Code, StringComparison.Ordinal));
 
@@ -55,7 +55,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 
             // 手动映射子表数据
             dto.DepartmentIds = item.Departments.Select(d => d.DepartmentId).ToArray();
-            dto.RoleNames = item.Roles.Select(r => r.RoleName).ToArray();
+            dto.ProjectRoleIds = item.ProjectRoles.Select(r => r.ProjectRoleId).ToArray();
 
             // ⭐ 3. 动态组装部门全称
             dto.DepartmentFullNames = dto.DepartmentIds.Select(id => GetDepartmentFullName(id)).ToArray();
@@ -85,10 +85,12 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             foreach (var deptId in input.DepartmentIds)
                 category.Departments.Add(new LaborCategoryDepartment(GuidGenerator.Create(), category.Id, deptId));
         }
-        if (input.RoleNames != null)
+        if (input.ProjectRoleIds != null)
         {
-            foreach (var roleName in input.RoleNames)
-                category.Roles.Add(new LaborCategoryRole(GuidGenerator.Create(), category.Id, roleName));
+            foreach (var roleId in input.ProjectRoleIds)
+            {
+                category.ProjectRoles.Add(new LaborCategoryProjectRole { LaborCategoryId = category.Id, ProjectRoleId = roleId });
+            }
         }
 
         await _repository.InsertAsync(category);
@@ -101,7 +103,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         if (input.ParentId == id) throw new Exception("上级分类不能是当前分类本身！");
 
         // 使用 IncludeDetails 获取带有子表的数据
-        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.Roles);
+        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
         var category = query.FirstOrDefault(x => x.Id == id);
 
         category.LaborType = input.LaborType;
@@ -116,12 +118,8 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             category.Code = await GetNextChildCodeAsync(input.ParentId);
         }
 
-        // ==========================================
-        // ⭐ 核心修复：使用差集更新法同步 Departments
-        // ==========================================
         var currentDeptIds = input.DepartmentIds ?? Array.Empty<Guid>();
 
-        // 1. 删除前端已取消勾选的项
         var deptsToRemove = category.Departments.Where(d => !currentDeptIds.Contains(d.DepartmentId)).ToList();
         foreach (var dept in deptsToRemove)
         {
@@ -136,24 +134,20 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             category.Departments.Add(new LaborCategoryDepartment(GuidGenerator.Create(), category.Id, deptId));
         }
 
-        // ==========================================
-        // ⭐ 核心修复：使用差集更新法同步 Roles
-        // ==========================================
-        var currentRoles = input.RoleNames ?? Array.Empty<string>();
-
+        var currentRoles = input.ProjectRoleIds;
         // 1. 删除前端已取消勾选的项
-        var rolesToRemove = category.Roles.Where(r => !currentRoles.Contains(r.RoleName)).ToList();
+        var rolesToRemove = category.ProjectRoles.Where(r => !currentRoles.Contains(r.ProjectRoleId)).ToList();
         foreach (var role in rolesToRemove)
         {
-            category.Roles.Remove(role);
+            category.ProjectRoles.Remove(role);
         }
 
         // 2. 添加前端新增的项
-        var existingRoles = category.Roles.Select(r => r.RoleName).ToList();
+        var existingRoles = category.ProjectRoles.Select(r => r.ProjectRoleId).ToList();
         var rolesToAdd = currentRoles.Where(r => !existingRoles.Contains(r)).ToList();
         foreach (var roleName in rolesToAdd)
         {
-            category.Roles.Add(new LaborCategoryRole(GuidGenerator.Create(), category.Id, roleName));
+            category.ProjectRoles.Add(new LaborCategoryProjectRole() { ProjectRoleId= roleName});
         }
 
         await _repository.UpdateAsync(category);

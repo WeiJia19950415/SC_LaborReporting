@@ -166,5 +166,27 @@ namespace SC_LaborReporting.LaborReports
             detail.Status = LaborReportStatus.Rejected;
             await _reportRepository.UpdateAsync(report);
         }
+
+        //专门为前端日历提供的按日期范围查询接口
+        public async Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate)
+        {
+            var userId = CurrentUser.Id;
+            if (!userId.HasValue) throw new UserFriendlyException("未检测到有效登录用户，请重新登录");
+            var query = (await _detailRepository.WithDetailsAsync(x => x.LaborReport))
+                .Where(x => x.LaborReport.ReporterId == userId.Value)
+                .Where(x => x.LaborReport.ReportDate >= startDate && x.LaborReport.ReportDate <= endDate);
+            var details = await query.ToListAsync();
+            var result = details
+                .GroupBy(x => x.LaborReport.ReportDate.ToString("yyyy-MM-dd"))
+                .Select(g => new LaborReportDailyStatusDto
+                {
+                    Date = g.Key,
+                    TotalEffectiveHours = g.First().LaborReport.TotalEffectiveHours,
+                    ApprovedDetailIds = g.Where(x => x.Status == LaborReportStatus.Approved).Select(x => x.Id).ToList(),
+                    PendingDetailIds = g.Where(x => x.Status == LaborReportStatus.Pending).Select(x => x.Id).ToList(),
+                    RejectedOrWithdrawnDetailIds = g.Where(x => x.Status == LaborReportStatus.Rejected || x.Status == LaborReportStatus.Withdrawn).Select(x => x.Id).ToList()
+                }).ToList();
+            return result;
+        }
     }
 }

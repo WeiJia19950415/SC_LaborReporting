@@ -6,6 +6,7 @@ using SC_LaborReporting.LaborReports;
 using SC_LaborReporting.Projects;
 using Volo.Abp.Identity;
 using Volo.Abp.Mapperly;
+using SC_LaborReporting.ProjectRoles;
 
 namespace SC_LaborReporting;
 
@@ -61,4 +62,20 @@ public partial class SC_LaborReportingLaborReportMapper : MapperBase<LaborReport
 {
     public override partial LaborReportItemDto Map(LaborReportDetail source);
     public override partial void Map(LaborReportDetail source, LaborReportItemDto destination);
+}
+
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SC_LaborReportingProjectRoleMapper : MapperBase<ProjectRole, ProjectRoleDto>
+{
+    public override partial ProjectRoleDto Map(ProjectRole source);
+    public override partial void Map(ProjectRole source, ProjectRoleDto destination);
+}
+[Mapper(RequiredMappingStrategy = RequiredMappingStrategy.Target)]
+public partial class SC_LaborReportingCreateProjectRoleMapper : MapperBase<CreateUpdateProjectRoleDto, ProjectRole>
+{
+    // 1. 用于新增：创建一个新对象
+    public override partial ProjectRole Map(CreateUpdateProjectRoleDto source);
+
+    // 2. 用于修改：将 DTO 的值覆盖到已存在的实体上
+    public override partial void Map(CreateUpdateProjectRoleDto source, ProjectRole destination);
 }
