@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.LaborCategories;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,10 @@ using System.Threading.Tasks;
 using Volo.Abp;
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
+using Volo.Abp.Identity;
 using Volo.Abp.Uow;
+using Volo.Abp.Users;
+using static SC_LaborReporting.Permissions.SC_LaborReportingPermissions;
 
 namespace SC_LaborReporting.LaborReports
 {
@@ -16,40 +20,21 @@ namespace SC_LaborReporting.LaborReports
         private readonly IRepository<LaborReport, Guid> _reportRepository;
         private readonly IRepository<LaborReportDetail, Guid> _detailRepository;
         private readonly IRepository<LaborCategory, Guid> _laborCategoryRepository;
+        private readonly IdentityUserManager _userManager;
 
         public LaborReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
             IRepository<LaborReportDetail, Guid> detailRepository,
-            IRepository<LaborCategory, Guid> laborCategoryRepository)
+            IRepository<LaborCategory, Guid> laborCategoryRepository,
+            IdentityUserManager userManager)
         {
             _reportRepository = reportRepository;
             _detailRepository = detailRepository;
             _laborCategoryRepository = laborCategoryRepository;
+            _userManager = userManager;
         }
 
-        // 新增接口
-        public async Task<Guid> CreateAsync(CreateLaborReportDto input)
-        {
-            var report = new LaborReport(GuidGenerator.Create(), input.ReporterId, input.DepartmentId, input.ReportDate);
 
-            foreach (var detailDto in input.Details)
-            {
-                // 校验规则：如果工时分类的LaborClass = 1，则关联项目必填
-                var category = await _laborCategoryRepository.GetAsync(detailDto.LaborCategoryId);
-                if (category.LaborClass == LaborClass.Project && !detailDto.ProjectId.HasValue)
-                {
-                    throw new UserFriendlyException($"工时分类[{category.Name}]要求必填关联项目");
-                }
-
-                var detail = new LaborReportDetail(
-                    GuidGenerator.Create(), report.Id, detailDto.LaborCategoryId,
-                    detailDto.LaborCategoryCode, detailDto.ProjectId, detailDto.Hours, detailDto.Jobresponsibilities);
-
-                report.Details.Add(detail);
-            }
-            await _reportRepository.InsertAsync(report);
-            return report.Id;
-        }
 
         //  查询接口
         public async Task<List<LaborReportItemDto>> GetListAsync(Guid? departmentId, Guid? reporterId, Guid? projectId, string categoryCode)
@@ -188,5 +173,102 @@ namespace SC_LaborReporting.LaborReports
                 }).ToList();
             return result;
         }
+        public async Task SaveDailyReportAsync(SaveDailyLaborReportDto input)
+        {
+            var currentUserId = CurrentUser.GetId();
+            var user = await _userManager.GetByIdAsync(currentUserId);
+            var ous = await _userManager.GetOrganizationUnitsAsync(user);
+             var departmentId = ous.FirstOrDefault()?.Id;
+            if (!departmentId.HasValue)
+            {
+                throw new UserFriendlyException("当前用户未分配部门，无法提报工时，请联系管理员！");
+            }
+            input.DepartmentId = departmentId;
+            var query = await _reportRepository.WithDetailsAsync(x => x.Details);
+            var report = query.FirstOrDefault(x => x.ReporterId == currentUserId && x.ReportDate.Date == input.ReportDate.Date);
+            if (report == null)
+            {
+                if (!input.DepartmentId.HasValue) throw new UserFriendlyException("缺少部门信息");
+                report = new LaborReport(GuidGenerator.Create(), currentUserId, input.DepartmentId.Value, input.ReportDate);
+                await _reportRepository.InsertAsync(report, autoSave: true);
+            }
+            foreach (var dto in input.Details)
+            {
+                if (dto.Id.HasValue && dto.Id.Value != Guid.Empty)
+                {
+                    var existingDetail = report.Details.FirstOrDefault(x => x.Id == dto.Id.Value);
+                    if (existingDetail != null)
+                    {
+                        existingDetail.LaborClass = dto.LaborClass;
+                        existingDetail.ProjectId = dto.ProjectId;
+                        existingDetail.ProjectCode = dto.ProjectCode ?? "-";
+                        existingDetail.ProjectName = dto.ProjectName ?? "-";
+                        existingDetail.ProjectRoleId = dto.ProjectRoleId;
+                        existingDetail.ProjectRoleName = dto.ProjectRoleName ?? "-";
+                        existingDetail.LaborCategoryId = dto.LaborCategoryId;
+                        existingDetail.LaborCategoryCode = dto.LaborCategoryCode;
+                        existingDetail.Hours = dto.Hours;
+                        existingDetail.Jobresponsibilities = dto.Jobresponsibilities;
+                    }
+                }
+                else
+                {
+                    var newDetail = new LaborReportDetail(
+                        id: GuidGenerator.Create(),
+                        laborReportId: report.Id,
+                        laborCategoryId: dto.LaborCategoryId,
+                        laborCategoryCode: dto.LaborCategoryCode,
+                        projectId: dto.ProjectId,
+                        hours: dto.Hours,
+                        jobresponsibilities: dto.Jobresponsibilities,
+                        laborClass: dto.LaborClass,
+                        projectCode: dto.ProjectCode ?? "-",
+                        projectName: dto.ProjectName ?? "-",
+                        projectRoleId: dto.ProjectRoleId,
+                        projectRoleName: dto.ProjectRoleName ?? "-"
+                    );
+
+                    report.Details.Add(newDetail);
+                }
+            }
+            await _reportRepository.UpdateAsync(report);
+        }
+
+        [HttpPost]
+        public async Task<List<LaborReportItemDto>> GetDetailsByIdsAsync(List<Guid> detailIds)
+        {
+            if (detailIds == null || !detailIds.Any())
+            {
+                return new List<LaborReportItemDto>();
+            }
+
+            // 1. 查出这些明细，并且通过 Include (WithDetails) 顺带查出所属的主表信息
+            var query = await _detailRepository.WithDetailsAsync(x => x.LaborReport);
+            var details = query.Where(x => detailIds.Contains(x.Id)).ToList();
+
+            // 2. 将实体数据手工组装映射为 Dto 吐给前端
+            var result = details.Select(d => new LaborReportItemDto
+            {
+                DetailId = d.Id,
+                ReportId = d.LaborReportId,
+                ReporterId = d.LaborReport.ReporterId,
+                DepartmentId = d.LaborReport.DepartmentId,
+                ReportDate = d.LaborReport.ReportDate,
+                LaborCategoryId = d.LaborCategoryId,
+                LaborCategoryCode = d.LaborCategoryCode,
+                Hours = d.Hours,
+                Jobresponsibilities = d.Jobresponsibilities,
+                Status = d.Status,
+                ProjectId = d.ProjectId,
+                LaborClass = d.LaborClass,
+                ProjectCode = d.ProjectCode,
+                ProjectName = d.ProjectName,
+                ProjectRoleId = d.ProjectRoleId,
+                ProjectRoleName = d.ProjectRoleName
+            }).ToList();
+
+            return result;
+        }
+
     }
 }

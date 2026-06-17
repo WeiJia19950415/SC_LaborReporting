@@ -2,14 +2,17 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Mvc;
 using Volo.Abp.Application.Services;
 
 namespace SC_LaborReporting.LaborReports
 {
     public interface ILaborReportAppService : IApplicationService
     {
+        [HttpPost]
+        Task<List<LaborReportItemDto>> GetDetailsByIdsAsync(List<Guid> detailIds);
         //新增
-        Task<Guid> CreateAsync(CreateLaborReportDto input);
+        Task SaveDailyReportAsync(SaveDailyLaborReportDto input);
 
         //综合查询 
         Task<List<LaborReportItemDto>> GetListAsync(Guid? departmentId, Guid? reporterId, Guid? projectId, string categoryCode);

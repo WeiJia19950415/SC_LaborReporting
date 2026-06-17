@@ -11,6 +11,7 @@
   <ItemGroup>
     <ProjectReference Include="..\SC_LaborReporting.Domain\SC_LaborReporting.Domain.csproj" />
     <ProjectReference Include="..\SC_LaborReporting.Application.Contracts\SC_LaborReporting.Application.Contracts.csproj" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <ItemGroup>

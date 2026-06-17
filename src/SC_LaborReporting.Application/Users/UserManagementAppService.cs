@@ -79,7 +79,7 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
 
     public async Task<UserDetailDto> CreateAsync(CreateUserInput input)
     {
-        var user = new IdentityUser(GuidGenerator.Create(), input.UserName, input.UserName + "@example.com", CurrentTenant.Id)
+        var user = new Volo.Abp.Identity.IdentityUser(GuidGenerator.Create(), input.UserName, input.UserName + "@example.com", CurrentTenant.Id)
         {
             Name = input.Name
         };

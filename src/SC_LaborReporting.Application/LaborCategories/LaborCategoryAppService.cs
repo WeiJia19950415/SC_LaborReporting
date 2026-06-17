@@ -1,11 +1,12 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.Authorization;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authorization;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
+using Volo.Abp.Users;
 
 namespace SC_LaborReporting.LaborCategories;
 
@@ -14,13 +15,50 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 {
     private readonly IRepository<LaborCategory, Guid> _repository;
     private readonly IRepository<OrganizationUnit, Guid> _ouRepository; // 注入部门仓储用于查全称
+    private readonly IdentityUserManager _userManager;
 
     public LaborCategoryAppService(
         IRepository<LaborCategory, Guid> repository,
-        IRepository<OrganizationUnit, Guid> ouRepository)
+        IRepository<OrganizationUnit, Guid> ouRepository,
+        IdentityUserManager userManager)
     {
         _repository = repository;
         _ouRepository = ouRepository;
+        _userManager = userManager;
+    }
+    public async Task<List<LaborCategoryDto>> GetLeafCategoriesAsync(Guid? projectRoleId, Guid? departmentId, LaborClass laborClass)
+    {
+        var currentUserId = CurrentUser.GetId();
+        var user = await _userManager.GetByIdAsync(currentUserId);
+        var ous = await _userManager.GetOrganizationUnitsAsync(user);
+        departmentId = ous.FirstOrDefault()?.Id;
+        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
+        var parentIds = query.Where(x => x.ParentId != null).Select(x => x.ParentId.Value).Distinct().ToList();
+        var leafQuery = query.Where(x => !parentIds.Contains(x.Id) && x.LaborClass == laborClass);
+        if (departmentId.HasValue)
+        {
+            leafQuery = leafQuery.Where(x => x.Departments.Any(d => d.DepartmentId == departmentId.Value));
+        }
+        if (projectRoleId.HasValue)
+        {
+            leafQuery = leafQuery.Where(x => x.ProjectRoles.Any(r => r.ProjectRoleId == projectRoleId.Value));
+        }
+        var leafNodes = await AsyncExecuter.ToListAsync(leafQuery);
+        var dtos = ObjectMapper.Map<List<LaborCategory>, List<LaborCategoryDto>>(leafNodes);
+        var allCategories = await _repository.GetListAsync();
+        var categoryDict = allCategories.ToDictionary(x => x.Id);
+        foreach (var dto in dtos)
+        {
+            var hierarchyNames = new List<string>();
+            Guid? currentId = dto.Id;
+            while (currentId.HasValue && categoryDict.TryGetValue(currentId.Value, out var currentCategory))
+            {
+                hierarchyNames.Insert(0, currentCategory.Name);
+                currentId = currentCategory.ParentId;
+            }
+            dto.FullName = string.Join(" - ", hierarchyNames);
+        }
+        return dtos;
     }
 
     public async Task<ListResultDto<LaborCategoryDto>> GetListAsync()

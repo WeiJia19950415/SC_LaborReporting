@@ -12,6 +12,7 @@ public class LaborCategoryDto : EntityDto<Guid>
     public LaborType LaborType { get; set; }
     public LaborClass LaborClass { get; set; }
     public string Name { get; set; }
+    public string FullName { get; set; }
     public Guid? ParentId { get; set; }
     public string Code { get; set; }
     public string Remark { get; set; }

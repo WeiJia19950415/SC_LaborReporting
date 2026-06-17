@@ -1,33 +1,43 @@
-﻿using System;
-using Volo.Abp.Domain.Entities.Auditing;
+﻿using SC_LaborReporting.LaborCategories;
+using System;
+using Volo.Abp.Domain.Entities;
 
 namespace SC_LaborReporting.LaborReports
 {
-    public class LaborReportDetail : FullAuditedEntity<Guid>
+    public class LaborReportDetail : Entity<Guid>
     {
         public Guid LaborReportId { get; set; }
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
-        public Guid? ProjectId { get; set; } // LaborClass=1时必填
         public decimal Hours { get; set; }
+        public string Jobresponsibilities { get; set; }
         public LaborReportStatus Status { get; set; }
-
-        public string Jobresponsibilities { get; set; } // 工作内容
-
-        public virtual LaborReport LaborReport { get; protected set; }
+        public LaborClass LaborClass { get; set; } // 1: 项目工时, 2: 非项目工时
+        public Guid? ProjectId { get; set; }
+        public string ProjectCode { get; set; }
+        public string ProjectName { get; set; }
+        public Guid? ProjectRoleId { get; set; }
+        public string ProjectRoleName { get; set; }
 
         protected LaborReportDetail() { }
-
-        public LaborReportDetail(Guid id, Guid reportId, Guid categoryId, string categoryCode, Guid? projectId, decimal hours, string jobresponsibilities)
-            : base(id)
+        public virtual LaborReport LaborReport { get; protected set; }
+        public LaborReportDetail(Guid id, Guid laborReportId, Guid laborCategoryId, string laborCategoryCode,
+            Guid? projectId, decimal hours, string jobresponsibilities,
+            LaborClass laborClass, string projectCode, string projectName, Guid? projectRoleId, string projectRoleName) : base(id)
         {
-            LaborReportId = reportId;
-            LaborCategoryId = categoryId;
-            LaborCategoryCode = categoryCode;
-            ProjectId = projectId;
+            LaborReportId = laborReportId;
+            LaborCategoryId = laborCategoryId;
+            LaborCategoryCode = laborCategoryCode;
             Hours = hours;
-            Status = LaborReportStatus.Pending; // 默认审核中
             Jobresponsibilities = jobresponsibilities;
+            Status = LaborReportStatus.Pending; // 默认审批中
+
+            ProjectId = projectId;
+            LaborClass = laborClass;
+            ProjectCode = projectCode;
+            ProjectName = projectName;
+            ProjectRoleId = projectRoleId;
+            ProjectRoleName = projectRoleName;
         }
     }
 }

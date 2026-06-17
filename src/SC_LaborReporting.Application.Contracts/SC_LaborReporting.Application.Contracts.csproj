@@ -10,6 +10,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\SC_LaborReporting.Domain.Shared\SC_LaborReporting.Domain.Shared.csproj" />
+		<FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
   
   <ItemGroup>

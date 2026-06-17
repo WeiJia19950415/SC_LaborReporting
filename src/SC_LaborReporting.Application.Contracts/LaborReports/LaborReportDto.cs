@@ -1,4 +1,5 @@
-﻿using System;
+﻿using SC_LaborReporting.LaborCategories;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -14,7 +15,11 @@ namespace SC_LaborReporting.LaborReports
         public DateTime ReportDate { get; set; }
         public decimal TotalEffectiveHours { get; set; }
         public decimal TotalOvertimeHours { get; set; }
-
+        public string ProjectCode { get; set; }
+        public string ProjectName { get; set; }
+        public Guid? ProjectRoleId { get; set; }
+        public string ProjectRoleName { get; set; }
+        public LaborClass LaborClass { get; set; }
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
         public Guid? ProjectId { get; set; }
@@ -80,5 +85,30 @@ namespace SC_LaborReporting.LaborReports
         /// 退回或撤销的
         /// </summary>
         public List<Guid> RejectedOrWithdrawnDetailIds { get; set; } = new List<Guid>();
+    }
+
+    public class SaveDailyLaborReportDto
+    {
+        public Guid? ReporterId { get; set; }
+        public Guid? DepartmentId { get; set; }
+        public DateTime ReportDate { get; set; }
+        public List<LaborReportDetailItemDto> Details { get; set; } = new List<LaborReportDetailItemDto>();
+    }
+    public class LaborReportDetailItemDto
+    {
+        // 如果有 Id，说明是修改；如果没有 Id，说明是前端新添加的行
+        public Guid? Id { get; set; }
+
+        public LaborClass LaborClass { get; set; }
+        public Guid? ProjectId { get; set; }
+        public string ProjectCode { get; set; }
+        public string ProjectName { get; set; }
+        public Guid? ProjectRoleId { get; set; }
+        public string ProjectRoleName { get; set; }
+
+        public Guid LaborCategoryId { get; set; }
+        public string LaborCategoryCode { get; set; }
+        public decimal Hours { get; set; }
+        public string Jobresponsibilities { get; set; }
     }
 }
