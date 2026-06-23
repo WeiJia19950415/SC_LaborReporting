@@ -50,7 +50,12 @@ public class SC_LaborReportingDbContext :
     public DbSet<LaborCategoryProjectRole> LaborCategoryProjectRoles { get; set; }
     public DbSet<Project> Projects { get; set; }
     public DbSet<LaborReport> LaborReports { get; set; }
+    
     public DbSet<LaborReportDetail> LaborReportDetails { get; set; }
+
+    public DbSet<LaborReportApprovalStatus> LaborReportApprovalStatus { get; set; }
+    public DbSet<LaborReportApprovalRecord> LaborReportApprovalRecords { get; set; }
+    
 
     // Tenant Management
     public DbSet<Tenant> Tenants { get; set; }

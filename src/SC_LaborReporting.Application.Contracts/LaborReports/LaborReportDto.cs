@@ -111,4 +111,13 @@ namespace SC_LaborReporting.LaborReports
         public decimal Hours { get; set; }
         public string Jobresponsibilities { get; set; }
     }
+
+    // 审批入参
+    public class ApproveInputDto
+    {
+        public Guid ReportId { get; set; }
+        public Guid DetailId { get; set; }
+        public bool IsApproved { get; set; }
+        public string Comment { get; set; }
+    }
 }

@@ -24,11 +24,13 @@ namespace SC_LaborReporting.LaborReports
         Task DeleteDetailAsync(Guid reportId, Guid detailId);
 
         //审核通过
-        Task ApproveAsync(Guid reportId, Guid detailId);
+        Task ApproveAsync(ApproveInputDto input);
 
         Task WithdrawAsync(Guid reportId, Guid detailId);
 
         Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate);
 
+        // 查询当前登录人待审批的工时明细
+        Task<List<LaborReportItemDto>> GetPendingApprovalsAsync(Guid? reporterId, Guid? departmentId, Guid? projectId);
     }
 }

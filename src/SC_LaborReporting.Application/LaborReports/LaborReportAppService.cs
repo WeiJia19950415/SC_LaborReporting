@@ -1,14 +1,17 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using SC_LaborReporting.enums;
 using SC_LaborReporting.LaborCategories;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp;
+using Volo.Abp.Data; // 引入 GetProperty 扩展方法所在的命名空间
 using Volo.Abp.Domain.Entities;
 using Volo.Abp.Domain.Repositories;
-using Volo.Abp.Identity;
+using Volo.Abp.Identity; // 引入 OrganizationUnit 所在的命名空间
+using Volo.Abp.Timing;
 using Volo.Abp.Uow;
 using Volo.Abp.Users;
 using static SC_LaborReporting.Permissions.SC_LaborReportingPermissions;
@@ -22,34 +25,40 @@ namespace SC_LaborReporting.LaborReports
         private readonly IRepository<LaborCategory, Guid> _laborCategoryRepository;
         private readonly IdentityUserManager _userManager;
 
+        private readonly IRepository<OrganizationUnit, Guid> _organizationUnitRepository;
+        private readonly IRepository<LaborReportApprovalStatus, Guid> _approvalStatusRepository;
+        private readonly IRepository<LaborReportApprovalRecord, Guid> _approvalRecordRepository;
+
         public LaborReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
             IRepository<LaborReportDetail, Guid> detailRepository,
             IRepository<LaborCategory, Guid> laborCategoryRepository,
-            IdentityUserManager userManager)
+            IdentityUserManager userManager,
+            IRepository<OrganizationUnit, Guid> organizationUnitRepository,
+            IRepository<LaborReportApprovalStatus, Guid> approvalStatusRepository,
+            IRepository<LaborReportApprovalRecord, Guid> approvalRecordRepository)
         {
             _reportRepository = reportRepository;
             _detailRepository = detailRepository;
             _laborCategoryRepository = laborCategoryRepository;
             _userManager = userManager;
+
+            _organizationUnitRepository = organizationUnitRepository;
+            _approvalStatusRepository = approvalStatusRepository;
+            _approvalRecordRepository = approvalRecordRepository;
         }
 
-
-
-        //  查询接口
+        // 查询接口
         public async Task<List<LaborReportItemDto>> GetListAsync(Guid? departmentId, Guid? reporterId, Guid? projectId, string categoryCode)
         {
-            // 在EFCore中以从表为基准查询并Include主表，完美等效于以主表Right Join从表
             var query = (await _detailRepository.WithDetailsAsync(x => x.LaborReport))
                 .WhereIf(departmentId.HasValue, x => x.LaborReport.DepartmentId == departmentId)
                 .WhereIf(reporterId.HasValue, x => x.LaborReport.ReporterId == reporterId)
                 .WhereIf(projectId.HasValue, x => x.ProjectId == projectId)
-                // 右侧模糊查询 (Code%)
                 .WhereIf(!string.IsNullOrWhiteSpace(categoryCode), x => x.LaborCategoryCode.StartsWith(categoryCode));
 
             var details = await query.ToListAsync();
 
-            // 手动映射拼接返回结果
             var result = details.Select(d => new LaborReportItemDto
             {
                 DetailId = d.Id,
@@ -68,7 +77,7 @@ namespace SC_LaborReporting.LaborReports
             return result;
         }
 
-        //修改接口 (限制状态并重置为审核中)
+        // 修改接口
         public async Task UpdateDetailAsync(Guid reportId, Guid detailId, UpdateLaborReportDetailDto input)
         {
             var report = await _reportRepository.GetAsync(reportId, includeDetails: true);
@@ -79,20 +88,24 @@ namespace SC_LaborReporting.LaborReports
             {
                 throw new UserFriendlyException("只能修改状态为“退回”或“撤回”的申报记录！");
             }
-            // 规则校验
+
             var category = await _laborCategoryRepository.GetAsync(input.LaborCategoryId);
             if (category.LaborClass == LaborClass.Project && !input.ProjectId.HasValue)
                 throw new UserFriendlyException("工时类别为项目时，关联项目必填");
-            // 更新并重置状态为审核中
+
             detail.LaborCategoryId = input.LaborCategoryId;
             detail.LaborCategoryCode = input.LaborCategoryCode;
             detail.ProjectId = input.ProjectId;
             detail.Hours = input.Hours;
             detail.Status = LaborReportStatus.Pending;
+
             await _reportRepository.UpdateAsync(report);
+
+            // 重新触发两级固定审批逻辑
+            await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id);
         }
 
-        // 删除从表数据
+        // 删除接口
         public async Task DeleteDetailAsync(Guid reportId, Guid detailId)
         {
             var report = await _reportRepository.GetAsync(reportId, includeDetails: true);
@@ -108,18 +121,62 @@ namespace SC_LaborReporting.LaborReports
             await _reportRepository.UpdateAsync(report);
         }
 
-        // 审核接口 (修改状态并计算主表数据)
-        public async Task ApproveAsync(Guid reportId, Guid detailId)
+        // 审核接口
+        public async Task ApproveAsync(ApproveInputDto input)
         {
-            var report = await _reportRepository.GetAsync(reportId, includeDetails: true);
-            var detail = report.Details.FirstOrDefault(x => x.Id == detailId)
-                ?? throw new EntityNotFoundException(typeof(LaborReportDetail), detailId);
+            var query = await _reportRepository.WithDetailsAsync(x => x.Details);
+            var report = await query.FirstOrDefaultAsync(x => x.Id == input.ReportId);
+            var detail = report.Details.FirstOrDefault(x => x.Id == input.DetailId)
+                ?? throw new EntityNotFoundException(typeof(LaborReportDetail), input.DetailId);
 
-            detail.Status = LaborReportStatus.Approved;
+            var statusInfo = await _approvalStatusRepository.FirstOrDefaultAsync(x => x.LaborReportDetailId == input.DetailId);
+            if (statusInfo == null || statusInfo.Status == ApprovalStatus.Completed)
+            {
+                throw new UserFriendlyException("当前申报明细不在审批状态中。");
+            }
 
-            // 触发主表工时重新计算
-            report.RecalculateHours();
+            var currentRecord = await _approvalRecordRepository.FirstOrDefaultAsync(x =>
+                x.LaborReportDetailId == input.DetailId &&
+                x.Level == statusInfo.CurrentLevel);
 
+            if (currentRecord == null)
+            {
+                throw new UserFriendlyException("未找到对应的审批记录节点。");
+            }
+
+            if (currentRecord.ApproverId != CurrentUser.Id)
+            {
+                throw new UserFriendlyException("您没有当前节点的审批权限。");
+            }
+
+            // 更新审批记录
+            currentRecord.Status = input.IsApproved ? ApprovalRecordStatus.Approved : ApprovalRecordStatus.Rejected;
+            currentRecord.Comment = input.Comment;
+            currentRecord.ApprovalTime = Clock.Now;
+            await _approvalRecordRepository.UpdateAsync(currentRecord);
+
+            // 更新审批状态
+            if (!input.IsApproved)
+            {
+                statusInfo.Status = ApprovalStatus.Rejected;
+                detail.Status = LaborReportStatus.Rejected;
+            }
+            else
+            {
+                if (statusInfo.CurrentLevel == 1)
+                {
+                    statusInfo.CurrentLevel = 2;
+                    statusInfo.Status = ApprovalStatus.Approving;
+                }
+                else if (statusInfo.CurrentLevel == 2)
+                {
+                    statusInfo.Status = ApprovalStatus.Completed;
+                    detail.Status = LaborReportStatus.Approved;
+                    report.RecalculateHours();
+                }
+            }
+
+            await _approvalStatusRepository.UpdateAsync(statusInfo);
             await _reportRepository.UpdateAsync(report);
         }
 
@@ -137,7 +194,7 @@ namespace SC_LaborReporting.LaborReports
             await _reportRepository.UpdateAsync(report);
         }
 
-        // 退回接口 内部调用
+        // 退回接口
         [RemoteService(IsEnabled = false)]
         public async Task RejectAsync(Guid reportId, Guid detailId)
         {
@@ -152,7 +209,7 @@ namespace SC_LaborReporting.LaborReports
             await _reportRepository.UpdateAsync(report);
         }
 
-        //专门为前端日历提供的按日期范围查询接口
+        // 日历查询
         public async Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate)
         {
             var userId = CurrentUser.Id;
@@ -173,12 +230,14 @@ namespace SC_LaborReporting.LaborReports
                 }).ToList();
             return result;
         }
+
+        // 提报工时
         public async Task SaveDailyReportAsync(SaveDailyLaborReportDto input)
         {
             var currentUserId = CurrentUser.GetId();
             var user = await _userManager.GetByIdAsync(currentUserId);
             var ous = await _userManager.GetOrganizationUnitsAsync(user);
-             var departmentId = ous.FirstOrDefault()?.Id;
+            var departmentId = ous.FirstOrDefault()?.Id;
             if (!departmentId.HasValue)
             {
                 throw new UserFriendlyException("当前用户未分配部门，无法提报工时，请联系管理员！");
@@ -232,6 +291,23 @@ namespace SC_LaborReporting.LaborReports
                 }
             }
             await _reportRepository.UpdateAsync(report);
+
+            // 触发自动创建审批记录流
+            foreach (var detail in report.Details)
+            {
+                if (detail.Status == LaborReportStatus.Pending)
+                {
+                    var exists = await _approvalStatusRepository.AnyAsync(x => x.LaborReportDetailId == detail.Id);
+                    if (!exists)
+                    {
+                        await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id);
+                    }
+                }
+            }
+            if (CurrentUnitOfWork != null)
+            {
+                await CurrentUnitOfWork.SaveChangesAsync();
+            }
         }
 
         [HttpPost]
@@ -242,11 +318,9 @@ namespace SC_LaborReporting.LaborReports
                 return new List<LaborReportItemDto>();
             }
 
-            // 1. 查出这些明细，并且通过 Include (WithDetails) 顺带查出所属的主表信息
             var query = await _detailRepository.WithDetailsAsync(x => x.LaborReport);
             var details = query.Where(x => detailIds.Contains(x.Id)).ToList();
 
-            // 2. 将实体数据手工组装映射为 Dto 吐给前端
             var result = details.Select(d => new LaborReportItemDto
             {
                 DetailId = d.Id,
@@ -270,5 +344,99 @@ namespace SC_LaborReporting.LaborReports
             return result;
         }
 
+        private async Task GenerateApprovalFlowAsync(Guid departmentId, Guid detailId)
+        {
+            var myDepartment = await _organizationUnitRepository.FirstOrDefaultAsync(x => x.Id == departmentId);
+            if (myDepartment == null)
+            {
+                throw new UserFriendlyException("未找到提交人所在部门！");
+            }
+
+            // 使用 GetProperty 读取扩展属性 ManagerId
+            var myManagerId = myDepartment.GetProperty<Guid?>("ManagerId");
+            if (!myManagerId.HasValue)
+            {
+                throw new UserFriendlyException("提交人所在部门未设置负责人，请联系人事或管理员配置！");
+            }
+            Guid level1ApproverId = myManagerId.Value;
+
+            // 寻找上级部门及负责人
+            Guid level2ApproverId = level1ApproverId;
+            if (myDepartment.ParentId.HasValue)
+            {
+                var parentDepartment = await _organizationUnitRepository.FirstOrDefaultAsync(x => x.Id == myDepartment.ParentId.Value);
+                if (parentDepartment != null)
+                {
+                    var parentManagerId = parentDepartment.GetProperty<Guid?>("ManagerId");
+                    if (parentManagerId.HasValue)
+                    {
+                        level2ApproverId = parentManagerId.Value;
+                    }
+                }
+            }
+
+            var oldStatus = await _approvalStatusRepository.FirstOrDefaultAsync(x => x.LaborReportDetailId == detailId);
+            if (oldStatus != null)
+            {
+                await _approvalStatusRepository.DeleteAsync(oldStatus);
+            }
+
+            var oldRecords = await _approvalRecordRepository.GetListAsync(x => x.LaborReportDetailId == detailId);
+            if (oldRecords.Any())
+            {
+                await _approvalRecordRepository.DeleteManyAsync(oldRecords);
+            }
+
+            var approvalStatus = new LaborReportApprovalStatus(GuidGenerator.Create(), detailId);
+            await _approvalStatusRepository.InsertAsync(approvalStatus);
+
+            var level1Record = new LaborReportApprovalRecord(GuidGenerator.Create(), detailId, 1, level1ApproverId);
+            var level2Record = new LaborReportApprovalRecord(GuidGenerator.Create(), detailId, 2, level2ApproverId);
+
+            await _approvalRecordRepository.InsertAsync(level1Record);
+            await _approvalRecordRepository.InsertAsync(level2Record);
+        }
+
+        public async Task<List<LaborReportItemDto>> GetPendingApprovalsAsync(Guid? reporterId, Guid? departmentId, Guid? projectId)
+        {
+            var currentUserId = CurrentUser.Id;
+            if (!currentUserId.HasValue) throw new UserFriendlyException("未检测到有效登录用户。");
+            var query = from record in await _approvalRecordRepository.GetQueryableAsync()
+                        join status in await _approvalStatusRepository.GetQueryableAsync()
+                          on record.LaborReportDetailId equals status.LaborReportDetailId
+                        where record.ApproverId == currentUserId.Value
+                           && (record.Status == ApprovalRecordStatus.Pending 
+                           && record.Level == status.CurrentLevel
+                           && (status.Status == ApprovalStatus.Approving || status.Status == ApprovalStatus.Submitted))
+                        select record.LaborReportDetailId;
+
+            var pendingDetailIds = await query.ToListAsync();
+
+            if (!pendingDetailIds.Any()) return new List<LaborReportItemDto>();
+            var detailQuery = (await _detailRepository.WithDetailsAsync(x => x.LaborReport))
+                .Where(x => pendingDetailIds.Contains(x.Id))
+                .WhereIf(departmentId.HasValue, x => x.LaborReport.DepartmentId == departmentId)
+                .WhereIf(reporterId.HasValue, x => x.LaborReport.ReporterId == reporterId)
+                .WhereIf(projectId.HasValue, x => x.ProjectId == projectId);
+
+            var details = await detailQuery.ToListAsync();
+            return details.Select(d => new LaborReportItemDto
+            {
+                DetailId = d.Id,
+                ReportId = d.LaborReport.Id,
+                ReporterId = d.LaborReport.ReporterId,
+                DepartmentId = d.LaborReport.DepartmentId,
+                ReportDate = d.LaborReport.ReportDate,
+                TotalEffectiveHours = d.LaborReport.TotalEffectiveHours,
+                TotalOvertimeHours = d.LaborReport.TotalOvertimeHours,
+                LaborCategoryId = d.LaborCategoryId,
+                LaborCategoryCode = d.LaborCategoryCode,
+                ProjectId = d.ProjectId,
+                Hours = d.Hours,
+                Status = d.Status,
+                Jobresponsibilities = d.Jobresponsibilities,
+                ProjectName = d.ProjectName
+            }).ToList();
+        }
     }
 }
