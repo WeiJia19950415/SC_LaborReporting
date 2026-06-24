@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Authorization.Permissions;
+using Volo.Abp.Data;
 using Volo.Abp.Identity;
 
 namespace SC_LaborReporting.Users;
@@ -153,5 +154,6 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
 
         // 强制重置为默认密码，ABP会自动检查密码复杂度 (SCjg.123000 满足默认规则)
         (await _userManager.ResetPasswordAsync(user, token, "SCjg.123000")).CheckErrors();
+        user.SetProperty("MustChangePassword", true);
     }
 }
