@@ -114,7 +114,7 @@ namespace SC_LaborReporting.Reports
             var userId = CurrentUser.Id;
             if (!userId.HasValue) throw new UserFriendlyException("未检测到有效登录用户");
 
-            var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.AllData);
+            var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL);
 
             var query = await _reportRepository.WithDetailsAsync(x => x.Details);
             var queryable = query.Where(x => x.ReportDate >= input.StartDate && x.ReportDate <= input.EndDate);

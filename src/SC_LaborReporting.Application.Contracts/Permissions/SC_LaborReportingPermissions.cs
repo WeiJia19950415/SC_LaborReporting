@@ -52,10 +52,46 @@ public static class SC_LaborReportingPermissions
         public const string RoleManagementDelete = RoleManagement + ".Delete";
     }
 
+    /// <summary>
+    /// 报表数据权限
+    /// </summary>
     public static class Reports
     {
-        public const string Default = GroupName + ".Reports";
-        public const string AllData = Default + ".AllData";
+        public const string ReportManagement = GroupName + ".ReportManagement";
+        public const string ReportManagement_BusinessDetails = ReportManagement + ".BusinessDetails";
+        public const string ReportManagement_BusinessDetailsALL = ReportManagement + ".BusinessDetailsALL";
     }
 
+
+    /// <summary>
+    /// 工时分类管理
+    /// </summary>
+    public static class LaborCategories
+    {
+        public const string LaborCategoriesManagement = GroupName + ".LaborCategoriesManagement";
+    }
+
+    /// <summary>
+    /// 项目管理
+    /// </summary>
+    public static class Projects
+    {
+        public const string ProjectsManagement = GroupName + ".Projects";
+    }
+
+    /// <summary>
+    /// 项目角色管理
+    /// </summary>
+    public static class ProjectRoles
+    {
+        public const string ProjectRolesManagement = GroupName + ".ProjectRoles";
+    }
+
+    /// <summary>
+    /// 工时填报
+    /// </summary>
+    public static class LaborReport
+    {
+        public const string LaborReportManagement = GroupName + ".LaborReport";
+    }
 }

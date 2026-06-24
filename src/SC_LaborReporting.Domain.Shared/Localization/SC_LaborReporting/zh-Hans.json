@@ -37,6 +37,26 @@
     "Unspecified": "System",
     "SeeAllUsers": "查看所有用户",
     "TakePhoto": "拍摄照片",
-    "ChoosePhoto": "选择照片"
+    "ChoosePhoto": "选择照片",
+    "Permission:User": "用户管理",
+    "Permission:User.Create": "用户新增",
+    "Permission:User.Edit": "用户修改",
+    "Permission:User.Delete": "用户删除",
+    "Permission:Department": "部门管理",
+    "Permission:Department.Create": "新增部门",
+    "Permission:Department.Edit": "修改部门",
+    "Permission:Department.Delete": "删除部门",
+    "Permission:Role": "角色管理",
+    "Permission:Role.Create": "新增角色",
+    "Permission:Role.Edit": "修改角色",
+    "Permission:Role.Delete": "删除角色",
+    "Permission:ReportManagement": "报表管理",
+    "Permission:ReportManagement.BusinessDetails": "明细报表-业务（默认查询本部门）",
+    "Permission:ReportManagement.BusinessDetailsALL": "明细报表-业务（所有数据权限）",
+    "Permission:LaborCategoriesManagement": "工时分类管理",
+    "Permission:ProjectsManagement": "项目管理",
+    "Permission:ProjectRolesManagement": "项目角色管理",
+    "Permission:LaborReportManagement": "工时填报"
+
   }
 }

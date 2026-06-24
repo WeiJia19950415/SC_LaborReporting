@@ -16,34 +16,36 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
 
         //用户管理
         var users = myGroup.AddPermission(SC_LaborReportingPermissions.User.UserManagement,L("Permission:User"));
-        users.AddChild(SC_LaborReportingPermissions.User.UserManagementCreate, L("Permission:User.Create"));
-        users.AddChild(SC_LaborReportingPermissions.User.UserManagementUpdate, L("Permission:User.Edit"));
-        users.AddChild(SC_LaborReportingPermissions.User.UserManagementDelete, L("Permission:User.Delete"));
+        //users.AddChild(SC_LaborReportingPermissions.User.UserManagementCreate, L("Permission:User.Create"));
+        //users.AddChild(SC_LaborReportingPermissions.User.UserManagementUpdate, L("Permission:User.Edit"));
+        //users.AddChild(SC_LaborReportingPermissions.User.UserManagementDelete, L("Permission:User.Delete"));
 
         //部门管理
         var Department = myGroup.AddPermission(SC_LaborReportingPermissions.Department.DepartmentManagement, L("Permission:Department"));
-        Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementCreate, L("Permission:Department.Create"));
-        Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementUpdate, L("Permission:Department.Edit"));
-        Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementDelete, L("Permission:Department.Delete"));
+        //Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementCreate, L("Permission:Department.Create"));
+        //Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementUpdate, L("Permission:Department.Edit"));
+        //Department.AddChild(SC_LaborReportingPermissions.Department.DepartmentManagementDelete, L("Permission:Department.Delete"));
 
         //角色管理
         var Role = myGroup.AddPermission(SC_LaborReportingPermissions.Role.RoleManagement, L("Permission:Role"));
-        Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementCreate, L("Permission:Role.Create"));
-        Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementUpdate, L("Permission:Role.Edit"));
-        Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementDelete, L("Permission:Role.Delete"));
+        //Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementCreate, L("Permission:Role.Create"));
+        //Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementUpdate, L("Permission:Role.Edit"));
+        //Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementDelete, L("Permission:Role.Delete"));
 
 
-        // Book 模块（你原来的模块）
-        var booksPermission = myGroup.AddPermission(SC_LaborReportingPermissions.Books.Default, L("Permission:Books"));
-        booksPermission.AddChild(SC_LaborReportingPermissions.Books.Create, L("Permission:Books.Create"));
-        booksPermission.AddChild(SC_LaborReportingPermissions.Books.Edit, L("Permission:Books.Edit"));
-        booksPermission.AddChild(SC_LaborReportingPermissions.Books.Delete, L("Permission:Books.Delete"));
+        //工时分类管理
+        var LaborCategorie = myGroup.AddPermission(SC_LaborReportingPermissions.LaborCategories.LaborCategoriesManagement, L("Permission:LaborCategoriesManagement"));
 
-        var reportGroup = context.GetGroupOrNull(SC_LaborReportingPermissions.GroupName)?? context.AddGroup(SC_LaborReportingPermissions.GroupName);
+        var Projects = myGroup.AddPermission(SC_LaborReportingPermissions.Projects.ProjectsManagement, L("Permission:ProjectsManagement"));
 
-        var reportPermission = reportGroup.AddPermission(SC_LaborReportingPermissions.Reports.Default);
-        reportPermission.AddChild(SC_LaborReportingPermissions.Reports.AllData);
+        var ProjectRoles = myGroup.AddPermission(SC_LaborReportingPermissions.ProjectRoles.ProjectRolesManagement, L("Permission:ProjectRolesManagement"));
 
+        var LaborReport = myGroup.AddPermission(SC_LaborReportingPermissions.LaborReport.LaborReportManagement, L("Permission:LaborReportManagement"));
+
+        //报表管理
+        var Report = myGroup.AddPermission(SC_LaborReportingPermissions.Reports.ReportManagement, L("Permission:ReportManagement"));
+        Report.AddChild(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetails, L("Permission:ReportManagement.BusinessDetails"));
+        Report.AddChild(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL, L("Permission:ReportManagement.BusinessDetailsALL"));
     }
 
     private static LocalizableString L(string name)
