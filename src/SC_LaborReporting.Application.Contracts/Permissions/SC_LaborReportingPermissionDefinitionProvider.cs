@@ -38,6 +38,12 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
         booksPermission.AddChild(SC_LaborReportingPermissions.Books.Create, L("Permission:Books.Create"));
         booksPermission.AddChild(SC_LaborReportingPermissions.Books.Edit, L("Permission:Books.Edit"));
         booksPermission.AddChild(SC_LaborReportingPermissions.Books.Delete, L("Permission:Books.Delete"));
+
+        var reportGroup = context.GetGroupOrNull(SC_LaborReportingPermissions.GroupName)?? context.AddGroup(SC_LaborReportingPermissions.GroupName);
+
+        var reportPermission = reportGroup.AddPermission(SC_LaborReportingPermissions.Reports.Default);
+        reportPermission.AddChild(SC_LaborReportingPermissions.Reports.AllData);
+
     }
 
     private static LocalizableString L(string name)

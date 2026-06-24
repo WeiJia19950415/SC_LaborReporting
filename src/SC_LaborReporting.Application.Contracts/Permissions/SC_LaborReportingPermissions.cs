@@ -52,4 +52,10 @@ public static class SC_LaborReportingPermissions
         public const string RoleManagementDelete = RoleManagement + ".Delete";
     }
 
+    public static class Reports
+    {
+        public const string Default = GroupName + ".Reports";
+        public const string AllData = Default + ".AllData";
+    }
+
 }
