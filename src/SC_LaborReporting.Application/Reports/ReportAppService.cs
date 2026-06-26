@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.LaborCategories; // 引入工时分类命名空间
 using SC_LaborReporting.LaborReports;
 using SC_LaborReporting.Permissions;
+using SC_LaborReporting.Projects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -25,6 +26,8 @@ namespace SC_LaborReporting.Reports
         private readonly IRepository<OrganizationUnit, Guid> _ouRepository;
         private readonly IAuthorizationService _authorizationService;
 
+        private readonly IRepository<LaborReportDetail, Guid> _detailRepository;
+        private readonly IRepository<Project, Guid> _ProjectRepository;
 
         public ReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
@@ -32,7 +35,9 @@ namespace SC_LaborReporting.Reports
             IdentityUserManager userManager,
             IRepository<IdentityUser, Guid> userRepository,
             IRepository<OrganizationUnit, Guid> ouRepository,
-            IAuthorizationService authorizationService)
+            IAuthorizationService authorizationService,
+            IRepository<LaborReportDetail, Guid> detailRepository,
+            IRepository<Project, Guid> ProjectRepository)
         {
             _reportRepository = reportRepository;
             _laborCategoryRepository = laborCategoryRepository;
@@ -40,6 +45,8 @@ namespace SC_LaborReporting.Reports
             _userRepository = userRepository;
             _ouRepository = ouRepository;
             _authorizationService = authorizationService;
+            _detailRepository = detailRepository;
+            _ProjectRepository = ProjectRepository;
         }
 
         public async Task<LaborReportMonthlySummaryDto> GetMonthlySummaryAsync(DateTime startDate, DateTime endDate)
@@ -284,6 +291,73 @@ namespace SC_LaborReporting.Reports
             }
             return field;
         }
-  
+
+
+        public async Task<List<UserDailyProjectReportDto>> GetUserCrossReportAsync(UserReportQueryDto input)
+        {
+            // 1. 获取主表查询对象
+            var query = await _reportRepository.GetQueryableAsync();
+
+            // 2. 针对主表 (LaborReport) 的过滤条件：日期、部门、人员
+            var reportQuery = query.Where(r =>
+                r.ReportDate.Date >= input.StartDate.Date &&
+                r.ReportDate.Date <= input.EndDate.Date);
+
+            if (input.DepartmentId.HasValue)
+            {
+                reportQuery = reportQuery.Where(r => r.DepartmentId == input.DepartmentId.Value);
+            }
+            if (input.UserId.HasValue)
+            {
+                reportQuery = reportQuery.Where(r => r.ReporterId == input.UserId.Value);
+            }
+
+            // 3. 核心：展开从表 (Details)，并在从表层级过滤出 Status == Approved 的记录
+            var detailQuery = reportQuery.SelectMany(r => r.Details
+                .Where(d => d.Status == LaborReportStatus.Approved)
+                .Select(d => new
+                {
+                    Date = r.ReportDate.Date,
+                    UserId = r.ReporterId,
+                    ProjectId = d.ProjectId,
+                    ProjectName = d.ProjectName,  // 实体中自带了项目名称，直接取用
+                    Hours = d.Hours,              // 注意：实体里这里是 decimal
+                    HoursFinance = d.Hoursfinance // 实体里这里是 double
+                }));
+
+            // 4. 执行 SQL，将结果拉取到内存中
+            var rawData = await detailQuery.ToListAsync();
+            if (!rawData.Any()) return new List<UserDailyProjectReportDto>();
+
+            // 5. 组装人员名称字典 (减少循环查询)
+            var userIds = rawData.Select(x => x.UserId).Distinct().ToList();
+            var userDict = await _userRepository.GetListAsync(x => userIds.Contains(x.Id));
+
+            // 6. 内存中执行按【日期+人员+项目】的分组和求和运算
+            var result = rawData
+                .GroupBy(x => new
+                {
+                    x.Date,
+                    x.UserId,
+                    // 处理非项目工时的情况（如果 ProjectId 为空，用 Guid.Empty 占位）
+                    ProjectId = x.ProjectId ?? Guid.Empty,
+                    ProjectName = string.IsNullOrWhiteSpace(x.ProjectName) ? "非项目工时" : x.ProjectName
+                })
+                .Select(g => new UserDailyProjectReportDto
+                {
+                    DateStr = g.Key.Date.ToString("yyyy-MM-dd"),
+                    UserId = g.Key.UserId,
+                    UserName = userDict.FirstOrDefault(u => u.Id == g.Key.UserId)?.Name ?? "未知人员",
+                    ProjectId = g.Key.ProjectId,
+                    ProjectName = g.Key.ProjectName,
+                    // 将 decimal 的 Hours 转换为 double，统一返回类型
+                    TotalHours = (double)g.Sum(x => x.Hours),
+                    TotalFinanceHours = g.Sum(x => x.HoursFinance)
+                })
+                .ToList();
+
+            return result;
+        }
+
     }
 }

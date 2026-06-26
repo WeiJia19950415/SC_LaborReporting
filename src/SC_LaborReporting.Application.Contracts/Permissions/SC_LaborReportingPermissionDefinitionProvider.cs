@@ -32,6 +32,8 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
         //Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementUpdate, L("Permission:Role.Edit"));
         //Role.AddChild(SC_LaborReportingPermissions.Role.RoleManagementDelete, L("Permission:Role.Delete"));
 
+        var SystemConfig = myGroup.AddPermission(SC_LaborReportingPermissions.SystemConfig.SystemConfigManagement, L("Permission:SystemConfigManagement"));
+
 
         //工时分类管理
         var LaborCategorie = myGroup.AddPermission(SC_LaborReportingPermissions.LaborCategories.LaborCategoriesManagement, L("Permission:LaborCategoriesManagement"));
@@ -46,6 +48,9 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
         var Report = myGroup.AddPermission(SC_LaborReportingPermissions.Reports.ReportManagement, L("Permission:ReportManagement"));
         Report.AddChild(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetails, L("Permission:ReportManagement.BusinessDetails"));
         Report.AddChild(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL, L("Permission:ReportManagement.BusinessDetailsALL"));
+
+        Report.AddChild(SC_LaborReportingPermissions.Reports.UserHoursReport, L("Permission:ReportManagement.UserHoursReport"));
+        Report.AddChild(SC_LaborReportingPermissions.Reports.UserFinanceReport, L("Permission:ReportManagement.UserFinanceReport"));
     }
 
     private static LocalizableString L(string name)

@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.enums;
 using SC_LaborReporting.LaborCategories;
+using SC_LaborReporting.Projects;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -28,6 +29,7 @@ namespace SC_LaborReporting.LaborReports
         private readonly IRepository<OrganizationUnit, Guid> _organizationUnitRepository;
         private readonly IRepository<LaborReportApprovalStatus, Guid> _approvalStatusRepository;
         private readonly IRepository<LaborReportApprovalRecord, Guid> _approvalRecordRepository;
+        private readonly IRepository<Project, Guid> _ProjectRepository;
 
         public LaborReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
@@ -36,7 +38,8 @@ namespace SC_LaborReporting.LaborReports
             IdentityUserManager userManager,
             IRepository<OrganizationUnit, Guid> organizationUnitRepository,
             IRepository<LaborReportApprovalStatus, Guid> approvalStatusRepository,
-            IRepository<LaborReportApprovalRecord, Guid> approvalRecordRepository)
+            IRepository<LaborReportApprovalRecord, Guid> approvalRecordRepository,
+            IRepository<Project, Guid> ProjectRepository)
         {
             _reportRepository = reportRepository;
             _detailRepository = detailRepository;
@@ -46,6 +49,7 @@ namespace SC_LaborReporting.LaborReports
             _organizationUnitRepository = organizationUnitRepository;
             _approvalStatusRepository = approvalStatusRepository;
             _approvalRecordRepository = approvalRecordRepository;
+            _ProjectRepository = ProjectRepository;
         }
 
         // 查询接口
@@ -102,7 +106,7 @@ namespace SC_LaborReporting.LaborReports
             await _reportRepository.UpdateAsync(report);
 
             // 重新触发两级固定审批逻辑
-            await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id);
+            await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id,detail.ProjectId);
         }
 
         // 删除接口
@@ -178,6 +182,7 @@ namespace SC_LaborReporting.LaborReports
 
             await _approvalStatusRepository.UpdateAsync(statusInfo);
             await _reportRepository.UpdateAsync(report);
+            CalculateAndAssignHoursFinance(report.Details.ToList());
         }
 
         // 撤回接口
@@ -300,7 +305,7 @@ namespace SC_LaborReporting.LaborReports
                     var exists = await _approvalStatusRepository.AnyAsync(x => x.LaborReportDetailId == detail.Id);
                     if (!exists)
                     {
-                        await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id);
+                        await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id, detail.ProjectId);
                     }
                 }
             }
@@ -344,15 +349,18 @@ namespace SC_LaborReporting.LaborReports
             return result;
         }
 
-        private async Task GenerateApprovalFlowAsync(Guid departmentId, Guid detailId)
+        /// <summary>
+        /// 生成审批流：部门负责人 -> 项目负责人
+        /// </summary>
+        private async Task GenerateApprovalFlowAsync(Guid departmentId, Guid detailId, Guid? ProjectId)
         {
+            // 1. 获取部门负责人 ID (假设你的 Department 服务或仓储中可以获取到)
+            // 这里的具体调用请根据你的实际服务方法替换
             var myDepartment = await _organizationUnitRepository.FirstOrDefaultAsync(x => x.Id == departmentId);
             if (myDepartment == null)
             {
                 throw new UserFriendlyException("未找到提交人所在部门！");
             }
-
-            // 使用 GetProperty 读取扩展属性 ManagerId
             var myManagerId = myDepartment.GetProperty<Guid?>("ManagerId");
             if (!myManagerId.HasValue)
             {
@@ -360,20 +368,9 @@ namespace SC_LaborReporting.LaborReports
             }
             Guid level1ApproverId = myManagerId.Value;
 
-            // 寻找上级部门及负责人
-            Guid level2ApproverId = level1ApproverId;
-            if (myDepartment.ParentId.HasValue)
-            {
-                var parentDepartment = await _organizationUnitRepository.FirstOrDefaultAsync(x => x.Id == myDepartment.ParentId.Value);
-                if (parentDepartment != null)
-                {
-                    var parentManagerId = parentDepartment.GetProperty<Guid?>("ManagerId");
-                    if (parentManagerId.HasValue)
-                    {
-                        level2ApproverId = parentManagerId.Value;
-                    }
-                }
-            }
+            // 寻找项目负责人
+            var project = await _ProjectRepository.FirstOrDefaultAsync(x => x.Id == ProjectId);
+            Guid level2ApproverId = project.ManagerId;
 
             var oldStatus = await _approvalStatusRepository.FirstOrDefaultAsync(x => x.LaborReportDetailId == detailId);
             if (oldStatus != null)
@@ -438,5 +435,62 @@ namespace SC_LaborReporting.LaborReports
                 ProjectName = d.ProjectName
             }).ToList();
         }
+
+
+        /// <summary>
+        /// 统筹计算并分配当天的财务核算工时 (Hoursfinance)
+        /// </summary>
+        /// <param name="dailyDetails">当天该用户所有的报工明细记录</param>
+        private void CalculateAndAssignHoursFinance(List<LaborReportDetail> dailyDetails)
+        {
+            if (dailyDetails == null || !dailyDetails.Any()) return;
+            double totalRealHours = (double)dailyDetails.Sum(d => d.Hours);
+            if (totalRealHours <= 8.0)
+            {
+                foreach (var detail in dailyDetails)
+                {
+                    detail.SetHoursfinance((double)detail.Hours);
+                }
+                return;
+            }
+
+            double targetTotal = 8.0;
+            double unit = 0.5;
+            var allocations = dailyDetails.Select(d => new
+            {
+                Detail = d,
+                ExactAlloc = ((double)d.Hours / totalRealHours) * targetTotal 
+            }).Select(x => new
+            {
+                x.Detail,
+                x.ExactAlloc,
+                BaseAlloc = Math.Floor(x.ExactAlloc / unit) * unit
+            }).ToList();
+
+            double currentSum = allocations.Sum(x => x.BaseAlloc);
+            int remainingSteps = (int)Math.Round((targetTotal - currentSum) / unit);
+            var orderedAllocations = allocations
+                .Select(x => new
+                {
+                    x.Detail,
+                    x.BaseAlloc,
+                    Remainder = x.ExactAlloc - x.BaseAlloc
+                })
+                .OrderByDescending(x => x.Remainder)
+                .ToList();
+
+            var finalAllocations = orderedAllocations.ToDictionary(x => x.Detail, x => x.BaseAlloc);
+
+            for (int i = 0; i < remainingSteps; i++)
+            {
+                var itemToCompensate = orderedAllocations[i % orderedAllocations.Count];
+                finalAllocations[itemToCompensate.Detail] += unit;
+            }
+            foreach (var detail in dailyDetails)
+            {
+                detail.SetHoursfinance(finalAllocations[detail]);
+            }
+        }
+
     }
 }

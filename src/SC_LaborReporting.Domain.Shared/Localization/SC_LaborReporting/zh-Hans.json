@@ -56,7 +56,10 @@
     "Permission:LaborCategoriesManagement": "工时分类管理",
     "Permission:ProjectsManagement": "项目管理",
     "Permission:ProjectRolesManagement": "项目角色管理",
-    "Permission:LaborReportManagement": "工时填报"
+    "Permission:LaborReportManagement": "工时填报",
+    "Permission:SystemConfigManagement": "系统配置",
+    "Permission:ReportManagement.UserHoursReport": "人员有效工时表（业务口）",
+    "Permission:ReportManagement.UserFinanceReport": "人员有效工时表（财务口）"
 
   }
 }

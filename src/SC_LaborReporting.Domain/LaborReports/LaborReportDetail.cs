@@ -10,6 +10,7 @@ namespace SC_LaborReporting.LaborReports
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
         public decimal Hours { get; set; }
+        public double Hoursfinance { get; protected set; }
         public string Jobresponsibilities { get; set; }
         public LaborReportStatus Status { get; set; }
         public LaborClass LaborClass { get; set; } // 1: 项目工时, 2: 非项目工时
@@ -21,6 +22,11 @@ namespace SC_LaborReporting.LaborReports
 
         protected LaborReportDetail() { }
         public virtual LaborReport LaborReport { get; protected set; }
+
+        public void SetHoursfinance(double hoursFinance)
+        {
+            Hoursfinance = hoursFinance;
+        }
         public LaborReportDetail(Guid id, Guid laborReportId, Guid laborCategoryId, string laborCategoryCode,
             Guid? projectId, decimal hours, string jobresponsibilities,
             LaborClass laborClass, string projectCode, string projectName, Guid? projectRoleId, string projectRoleName) : base(id)

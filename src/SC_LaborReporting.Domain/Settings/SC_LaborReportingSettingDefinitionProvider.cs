@@ -6,7 +6,10 @@ public class SC_LaborReportingSettingDefinitionProvider : SettingDefinitionProvi
 {
     public override void Define(ISettingDefinitionContext context)
     {
-        //Define your own settings here. Example:
-        //context.Add(new SettingDefinition(SC_LaborReportingSettings.MySetting1));
+        context.Add(
+            new SettingDefinition(SC_LaborReportingSettings.AttendanceStartDate, "26", isVisibleToClients: true),
+            new SettingDefinition(SC_LaborReportingSettings.AttendanceEndDate, "25", isVisibleToClients: true),
+            new SettingDefinition(SC_LaborReportingSettings.AuditStatus, "false", isVisibleToClients: true)
+        );
     }
 }

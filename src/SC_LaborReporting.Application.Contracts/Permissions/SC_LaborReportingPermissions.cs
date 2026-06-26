@@ -1,3 +1,5 @@
+using static SC_LaborReporting.Permissions.SC_LaborReportingPermissions;
+
 namespace SC_LaborReporting.Permissions;
 
 /// <summary>
@@ -60,6 +62,10 @@ public static class SC_LaborReportingPermissions
         public const string ReportManagement = GroupName + ".ReportManagement";
         public const string ReportManagement_BusinessDetails = ReportManagement + ".BusinessDetails";
         public const string ReportManagement_BusinessDetailsALL = ReportManagement + ".BusinessDetailsALL";
+
+
+        public const string UserHoursReport = ReportManagement + ".UserHoursReport";
+        public const string UserFinanceReport = ReportManagement + ".UserFinanceReport";
     }
 
 
@@ -94,4 +100,14 @@ public static class SC_LaborReportingPermissions
     {
         public const string LaborReportManagement = GroupName + ".LaborReport";
     }
+
+    /// <summary>
+    /// 系统配置
+    /// </summary>
+    public static class SystemConfig
+    {
+        public const string SystemConfigManagement = GroupName + ".SystemConfig";
+
+    }
+
 }
