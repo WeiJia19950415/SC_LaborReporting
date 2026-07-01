@@ -24,6 +24,7 @@ namespace SC_LaborReporting.LaborReports
         public string LaborCategoryCode { get; set; }
         public Guid? ProjectId { get; set; }
         public decimal Hours { get; set; }
+        public decimal Hoursfinance { get; set; }
         public string Jobresponsibilities { get; set; }
         public LaborReportStatus Status { get; set; }
     }

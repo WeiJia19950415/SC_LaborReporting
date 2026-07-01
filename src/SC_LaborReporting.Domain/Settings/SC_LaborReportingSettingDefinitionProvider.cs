@@ -9,7 +9,10 @@ public class SC_LaborReportingSettingDefinitionProvider : SettingDefinitionProvi
         context.Add(
             new SettingDefinition(SC_LaborReportingSettings.AttendanceStartDate, "26", isVisibleToClients: true),
             new SettingDefinition(SC_LaborReportingSettings.AttendanceEndDate, "25", isVisibleToClients: true),
-            new SettingDefinition(SC_LaborReportingSettings.AuditStatus, "false", isVisibleToClients: true)
-        );
+            new SettingDefinition(SC_LaborReportingSettings.AuditStatus, "false", isVisibleToClients: true),
+            new SettingDefinition(SC_LaborReportingSettings.WeComSecret, "", isVisibleToClients: true),
+            new SettingDefinition(SC_LaborReportingSettings.WeComCorpID, "", isVisibleToClients: true),
+            new SettingDefinition(SC_LaborReportingSettings.WeComAgentId, "", isVisibleToClients: true)
+            );
     }
 }

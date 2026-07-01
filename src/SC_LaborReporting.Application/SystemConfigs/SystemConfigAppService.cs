@@ -20,12 +20,16 @@ namespace SC_LaborReporting.SystemConfigs
         /// </summary>
         public async Task<SystemConfigDto> GetConfigAsync()
         {
-            return new SystemConfigDto
+            var ret = new SystemConfigDto
             {
                 AttendanceStartDate = await SettingProvider.GetAsync<int>(SC_LaborReportingSettings.AttendanceStartDate),
                 AttendanceEndDate = await SettingProvider.GetAsync<int>(SC_LaborReportingSettings.AttendanceEndDate),
-                AuditStatus = await SettingProvider.GetAsync<bool>(SC_LaborReportingSettings.AuditStatus)
+                AuditStatus = await SettingProvider.GetAsync<bool>(SC_LaborReportingSettings.AuditStatus),
+                WeComAgentId = await SettingProvider.GetOrNullAsync(SC_LaborReportingSettings.WeComAgentId),
+                WeComCorpID = await SettingProvider.GetOrNullAsync(SC_LaborReportingSettings.WeComCorpID),
+                WeComSecret = await SettingProvider.GetOrNullAsync(SC_LaborReportingSettings.WeComSecret)
             };
+            return ret;
         }
 
         /// <summary>
@@ -47,6 +51,10 @@ namespace SC_LaborReporting.SystemConfigs
             await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.AttendanceStartDate, input.AttendanceStartDate.ToString());
             await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.AttendanceEndDate, input.AttendanceEndDate.ToString());
             await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.AuditStatus, input.AuditStatus.ToString().ToLower());
+            // 更新到全局设置中
+            await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.WeComAgentId, input.WeComAgentId);
+            await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.WeComCorpID, input.WeComCorpID);
+            await _settingManager.SetGlobalAsync(SC_LaborReportingSettings.WeComSecret, input.WeComSecret);
         }
     }
 }

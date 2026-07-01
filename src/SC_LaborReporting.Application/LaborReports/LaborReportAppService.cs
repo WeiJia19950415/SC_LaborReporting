@@ -401,7 +401,7 @@ namespace SC_LaborReporting.LaborReports
             var query = from record in await _approvalRecordRepository.GetQueryableAsync()
                         join status in await _approvalStatusRepository.GetQueryableAsync()
                           on record.LaborReportDetailId equals status.LaborReportDetailId
-                        where record.ApproverId == currentUserId.Value
+                        where record.ApproverId == currentUserId.Value  
                            && (record.Status == ApprovalRecordStatus.Pending 
                            && record.Level == status.CurrentLevel
                            && (status.Status == ApprovalStatus.Approving || status.Status == ApprovalStatus.Submitted))

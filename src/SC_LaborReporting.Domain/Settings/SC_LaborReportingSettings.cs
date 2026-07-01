@@ -13,4 +13,20 @@ public static class SC_LaborReportingSettings
     public const string AttendanceEndDate = Prefix + ".AttendanceEndDate";
     // 审计状态
     public const string AuditStatus = Prefix + ".AuditStatus";
+
+    /// <summary>
+    /// 企业微信CorpID设置
+    /// </summary>
+    public const string WeComCorpID = Prefix + ".WeComCorpID";
+
+    /// <summary>
+    /// 企业微信AgentId设置
+    /// </summary>
+    public const string WeComAgentId = Prefix + ".WeComAgentId";
+
+
+    /// <summary>
+    /// 企业微信Secret设置
+    /// </summary>
+    public const string WeComSecret = Prefix + ".WeComSecret";
 }
