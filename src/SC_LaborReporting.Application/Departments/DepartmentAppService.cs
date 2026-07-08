@@ -82,7 +82,7 @@ public class DepartmentAppService : SC_LaborReportingAppService, IDepartmentAppS
     public async Task<DepartmentDto> CreateAsync(CreateDepartmentInput input)
     {
         var ou = new OrganizationUnit(GuidGenerator.Create(), input.DisplayName, input.ParentId, CurrentTenant.Id);
-
+        
         // 存储扩展属性
         ou.SetProperty("DepartmentType", input.DepartmentType);
         ou.SetProperty("ManagerId", input.ManagerId);

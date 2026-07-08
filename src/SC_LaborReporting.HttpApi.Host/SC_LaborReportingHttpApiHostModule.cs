@@ -86,7 +86,8 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
             {
                 //
                 serverBuilder.SetAccessTokenLifetime(TimeSpan.FromMinutes(20));
-                serverBuilder.AddProductionEncryptionAndSigningCertificate("openiddict.pfx", configuration["AuthServer:CertificatePassPhrase"]!);
+                serverBuilder.AddEphemeralEncryptionKey();
+                serverBuilder.AddEphemeralSigningKey();
                 serverBuilder.SetIssuer(new Uri(configuration["AuthServer:Authority"]!));
             });
         }
