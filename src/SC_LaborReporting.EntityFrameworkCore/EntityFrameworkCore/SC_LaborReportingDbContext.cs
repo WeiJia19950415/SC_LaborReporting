@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.SqlServer.Infrastructure.Internal;
 using SC_LaborReporting.Books;
 using SC_LaborReporting.LaborCategories;
 using SC_LaborReporting.LaborReports;
@@ -66,6 +67,22 @@ public class SC_LaborReportingDbContext :
         : base(options)
     {
 
+    }
+
+    protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
+    {
+        base.OnConfiguring(optionsBuilder);
+        if (optionsBuilder.IsConfigured)
+        {
+            optionsBuilder.UseSqlServer(
+                optionsBuilder.Options.FindExtension<SqlServerOptionsExtension>().ConnectionString,
+                sqlOptions =>
+                {
+                    sqlOptions.UseCompatibilityLevel(100);
+                    //sqlOptions.EnableRetryOnFailure();
+                }
+            );
+        }
     }
 
     protected override void OnModelCreating(ModelBuilder builder)
