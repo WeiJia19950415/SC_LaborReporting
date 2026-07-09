@@ -102,6 +102,14 @@ public static class SC_LaborReportingPermissions
     }
 
     /// <summary>
+    /// 工时审批
+    /// </summary>
+    public static class LaborReportApproval
+    {
+        public const string LaborReportApprovalManagement = GroupName + ".LaborReportApproval";
+    }
+
+    /// <summary>
     /// 系统配置
     /// </summary>
     public static class SystemConfig

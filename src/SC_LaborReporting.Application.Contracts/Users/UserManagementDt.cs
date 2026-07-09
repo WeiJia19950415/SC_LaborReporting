@@ -10,6 +10,8 @@ public class UserDetailDto : EntityDto<Guid>
     public string UserName { get; set; }
     public string Name { get; set; }
     public string PhoneNumber { get; set; }
+    public string JobNumber { get; set; }
+
     public bool IsActive { get; set; }
     public Guid? DepartmentId { get; set; }
     public string DepartmentName { get; set; }
@@ -23,6 +25,7 @@ public class CreateUserInput
     [Required] public string Name { get; set; }
     [Required] public string PhoneNumber { get; set; }
     [Required] public string Password { get; set; } // 新增用户必须有密码
+    [Required] public string JobNumber { get; set; }
     public bool IsActive { get; set; } = true;
     public Guid? DepartmentId { get; set; }
     public string[] RoleNames { get; set; }

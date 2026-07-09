@@ -37,35 +37,22 @@ public static class SC_LaborReportingModuleExtensionConfigurator
 
     private static void ConfigureExtraProperties()
     {
-        /* You can configure extra properties for the
-         * entities defined in the modules used by your application.
-         *
-         * This class can be used to define these extra properties
-         * with a high level, easy to use API.
-         *
-         * Example: Add a new property to the user entity of the identity module
+        ObjectExtensionManager.Instance.Modules()
+        .ConfigureIdentity(identity =>
+        {
+            identity.ConfigureUser(user =>
+            {
+                user.AddOrUpdateProperty<string>(
+                    "JobNumber", // 属性名称
+                    options =>
+                    {
+                        options.Attributes.Add(new RequiredAttribute()); // 必填
+                        options.Attributes.Add(new StringLengthAttribute(32)); // 长度限制
+                        options.DefaultValue = "";
+                    }
+                );
+            });
+        });
 
-           ObjectExtensionManager.Instance.Modules()
-              .ConfigureIdentity(identity =>
-              {
-                  identity.ConfigureUser(user =>
-                  {
-                      user.AddOrUpdateProperty<string>( //property type: string
-                          "SocialSecurityNumber", //property name
-                          property =>
-                          {
-                              //validation rules
-                              property.Attributes.Add(new RequiredAttribute());
-                              property.Attributes.Add(new StringLengthAttribute(64) {MinimumLength = 4});
-
-                              //...other configurations for this property
-                          }
-                      );
-                  });
-              });
-
-         * See the documentation for more:
-         * https://abp.io/docs/latest/framework/architecture/modularity/extending/module-entity-extensions
-         */
     }
 }

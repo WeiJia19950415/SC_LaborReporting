@@ -44,6 +44,8 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
 
         var LaborReport = myGroup.AddPermission(SC_LaborReportingPermissions.LaborReport.LaborReportManagement, L("Permission:LaborReportManagement"));
 
+        var LaborReportApproval = myGroup.AddPermission(SC_LaborReportingPermissions.LaborReportApproval.LaborReportApprovalManagement, L("Permission:LaborReportApprovalManagement"));
+
         //报表管理
         var Report = myGroup.AddPermission(SC_LaborReportingPermissions.Reports.ReportManagement, L("Permission:ReportManagement"));
         Report.AddChild(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetails, L("Permission:ReportManagement.BusinessDetails"));
