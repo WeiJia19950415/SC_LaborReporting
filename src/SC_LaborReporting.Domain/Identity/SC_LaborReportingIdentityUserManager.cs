@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Linq;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Volo.Abp.Caching;
@@ -14,11 +15,12 @@ using Volo.Abp.MultiTenancy;
 using Volo.Abp.Security.Claims;
 using Volo.Abp.Settings;
 using Volo.Abp.Threading;
+using Volo.Abp.Domain.Repositories;
 
 namespace SC_LaborReporting.Identity;
 
-// 👇 [Dependency(ReplaceServices = true)] 极为重要，它会告诉 ABP 用这个子类全面替代原有的内置 UserManager
 [Dependency(ReplaceServices = true)]
+[ExposeServices(typeof(IdentityUserManager))]
 public class SC_LaborReportingIdentityUserManager : IdentityUserManager
 {
     public SC_LaborReportingIdentityUserManager(IdentityUserStore store, 
@@ -61,19 +63,24 @@ public class SC_LaborReportingIdentityUserManager : IdentityUserManager
     {
     }
 
-
-    /// <summary>
-    /// 重写根据名称查找用户的方法
-    /// </summary>
     public override async Task<IdentityUser> FindByNameAsync(string userName)
     {
-        // 1. 首先，尝试按照系统原生的“用户名 (UserName)”去查找
+        // 1. 先尝试使用 ABP 原生的用户名去查找用户
         var user = await base.FindByNameAsync(userName);
         if (user != null)
         {
             return user;
         }
-        user = await Users.FirstOrDefaultAsync(u => EF.Property<string>(u, "JobNumber") == userName);
+        var genericRepository = UserRepository as IRepository<IdentityUser, Guid>;
+        if (genericRepository != null)
+        {
+            var queryable = await genericRepository.GetQueryableAsync();
+            user = await EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                queryable,
+                u => EF.Property<string>(u, "JobNumber") == userName
+            );
+        }
+        
         return user;
     }
 }

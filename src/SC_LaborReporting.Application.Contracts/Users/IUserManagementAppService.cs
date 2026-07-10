@@ -15,4 +15,5 @@ public interface IUserManagementAppService : IApplicationService
     Task DeleteAsync(Guid id);
     Task<List<string>> GetMyPermissionsAsync();
     Task ResetPasswordAsync(Guid id);
+    Task<byte[]> ImportUsersAsync(byte[] fileBytes);
 }
