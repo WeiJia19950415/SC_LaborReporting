@@ -11,6 +11,9 @@ namespace SC_LaborReporting.LaborReports
         public Guid DetailId { get; set; }
         public Guid ReportId { get; set; }
         public Guid ReporterId { get; set; }
+        public Guid ProductSeriesId { get; set; }
+        public string ProductSeriesCode { get; set; }
+        public string ProductSeriesName { get; set; }
         public Guid DepartmentId { get; set; }
         public DateTime ReportDate { get; set; }
         public decimal TotalEffectiveHours { get; set; }
@@ -41,6 +44,8 @@ namespace SC_LaborReporting.LaborReports
     {
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
+
+        public Guid ProductSeriesId {  get; set; }
         public Guid? ProjectId { get; set; }
         public decimal Hours { get; set; }
         public string Jobresponsibilities { get; set; }
@@ -102,6 +107,8 @@ namespace SC_LaborReporting.LaborReports
 
         public LaborClass LaborClass { get; set; }
         public Guid? ProjectId { get; set; }
+        public Guid ProductSeriesId { get; set; }
+
         public string ProjectCode { get; set; }
         public string ProjectName { get; set; }
         public Guid? ProjectRoleId { get; set; }

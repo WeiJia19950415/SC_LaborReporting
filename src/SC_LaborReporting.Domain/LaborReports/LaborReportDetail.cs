@@ -7,6 +7,8 @@ namespace SC_LaborReporting.LaborReports
     public class LaborReportDetail : Entity<Guid>
     {
         public Guid LaborReportId { get; set; }
+
+        public Guid ProductSeriesId { get; set; }
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
         public decimal Hours { get; set; }
@@ -29,7 +31,7 @@ namespace SC_LaborReporting.LaborReports
         }
         public LaborReportDetail(Guid id, Guid laborReportId, Guid laborCategoryId, string laborCategoryCode,
             Guid? projectId, decimal hours, string jobresponsibilities,
-            LaborClass laborClass, string projectCode, string projectName, Guid? projectRoleId, string projectRoleName) : base(id)
+            LaborClass laborClass, string projectCode, string projectName, Guid? projectRoleId, string projectRoleName, Guid productSeriesId) : base(id)
         {
             LaborReportId = laborReportId;
             LaborCategoryId = laborCategoryId;
@@ -44,6 +46,7 @@ namespace SC_LaborReporting.LaborReports
             ProjectName = projectName;
             ProjectRoleId = projectRoleId;
             ProjectRoleName = projectRoleName;
+            ProductSeriesId = productSeriesId;
         }
     }
 }

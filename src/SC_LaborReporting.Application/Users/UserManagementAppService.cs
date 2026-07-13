@@ -6,13 +6,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Authorization.Permissions;
 using Volo.Abp.Data;
 using Volo.Abp.Identity;
 using Volo.Abp.Uow;
-
 
 namespace SC_LaborReporting.Users;
 
@@ -45,17 +45,43 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
         _unitOfWorkManager = unitOfWorkManager;
     }
 
-    public async Task<PagedResultDto<UserDetailDto>> GetListAsync(PagedAndSortedResultRequestDto input)
+    public async Task<PagedResultDto<UserDetailDto>> GetListAsync(UserListQueryDto input)
     {
-        var users = await _userRepository.GetListAsync(input.Sorting, input.MaxResultCount, input.SkipCount);
-        
-        var totalCount = await _userRepository.GetCountAsync();
+        List<Volo.Abp.Identity.IdentityUser> users;
+        long totalCount;
+        if (input.DepartmentId.HasValue)
+        {
+            var ou = await _organizationUnitRepository.GetAsync(input.DepartmentId.Value);
+            var usersInOu = await _userManager.GetUsersInOrganizationUnitAsync(ou);
+            var query = usersInOu.AsQueryable();
+            if (!string.IsNullOrWhiteSpace(input.Filter))
+            {
+                query = query.Where(u => (u.UserName != null && u.UserName.Contains(input.Filter)) ||
+                                         (u.Name != null && u.Name.Contains(input.Filter)) ||
+                                         (u.PhoneNumber != null && u.PhoneNumber.Contains(input.Filter)));
+            }
 
+            totalCount = query.Count();
+            users = query.OrderBy(u => u.UserName)
+                         .Skip(input.SkipCount)
+                         .Take(input.MaxResultCount)
+                         .ToList();
+        }
+        else
+        {
+            users = await _userRepository.GetListAsync(
+                input.Sorting,
+                input.MaxResultCount,
+                input.SkipCount,
+                input.Filter
+            );
+            totalCount = await _userRepository.GetCountAsync(input.Filter);
+        }
         var dtoList = new List<UserDetailDto>();
         foreach (var user in users)
         {
             var roles = await _userManager.GetRolesAsync(user);
-            var ous = await _userManager.GetOrganizationUnitsAsync(user); // 获取部门
+            var ous = await _userManager.GetOrganizationUnitsAsync(user);
 
             dtoList.Add(new UserDetailDto
             {
@@ -67,13 +93,11 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
                 RoleNames = roles.ToArray(),
                 DepartmentId = ous.FirstOrDefault()?.Id,
                 DepartmentName = ous.FirstOrDefault()?.DisplayName,
-                JobNumber = user.GetProperty<string>("JobNumber")
+                JobNumber = user.GetProperty<string>("JobNumber") 
             });
         }
-
         return new PagedResultDto<UserDetailDto>(totalCount, dtoList);
     }
-
     public async Task<UserDetailDto> GetAsync(Guid id)
     {
         var user = await _userManager.GetByIdAsync(id);

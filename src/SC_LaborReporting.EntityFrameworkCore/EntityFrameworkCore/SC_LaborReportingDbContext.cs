@@ -56,8 +56,8 @@ public class SC_LaborReportingDbContext :
 
     public DbSet<LaborReportApprovalStatus> LaborReportApprovalStatus { get; set; }
     public DbSet<LaborReportApprovalRecord> LaborReportApprovalRecords { get; set; }
-    
 
+    public DbSet<ProductSeries.ProductSeries> ProductSeries { get; set; }
     // Tenant Management
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<TenantConnectionString> TenantConnectionStrings { get; set; }
@@ -147,6 +147,14 @@ public class SC_LaborReportingDbContext :
             b.Property(x => x.LaborCategoryCode).IsRequired().HasMaxLength(64);
             b.Property(x => x.Hours).HasColumnType("decimal(18,2)");
             b.Property(x => x.Jobresponsibilities).HasMaxLength(1024);
+        });
+
+        builder.Entity<ProductSeries.ProductSeries>(b =>
+        {
+            b.ToTable(SC_LaborReportingConsts.DbTablePrefix + "ProductSeries", SC_LaborReportingConsts.DbSchema);
+            b.ConfigureByConvention();
+            b.Property(x => x.Code).IsRequired().HasMaxLength(64);
+            b.Property(x => x.Name).IsRequired().HasMaxLength(128);
         });
     }
 }

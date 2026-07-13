@@ -60,7 +60,8 @@
     "Permission:LaborReportApprovalManagement": "工时审批",
     "Permission:SystemConfigManagement": "系统配置",
     "Permission:ReportManagement.UserHoursReport": "人员有效工时表（业务口）",
-    "Permission:ReportManagement.UserFinanceReport": "人员有效工时表（财务口）"
+    "Permission:ReportManagement.UserFinanceReport": "人员有效工时表（财务口）",
+    "Permission:ReportManagement.ProductSeries": "产品系列"
 
   }
 }

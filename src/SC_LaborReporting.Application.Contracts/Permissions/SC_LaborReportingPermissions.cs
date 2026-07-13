@@ -118,4 +118,12 @@ public static class SC_LaborReportingPermissions
 
     }
 
+    /// <summary>
+    /// 产品系列
+    /// </summary>
+    public static class ProductSeries
+    {
+        public const string Default = GroupName + ".ProductSeries";
+    }
+
 }

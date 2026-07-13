@@ -2,6 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using SC_LaborReporting.enums;
 using SC_LaborReporting.LaborCategories;
+using SC_LaborReporting.ProductSeries;
 using SC_LaborReporting.Projects;
 using System;
 using System.Collections.Generic;
@@ -30,6 +31,7 @@ namespace SC_LaborReporting.LaborReports
         private readonly IRepository<LaborReportApprovalStatus, Guid> _approvalStatusRepository;
         private readonly IRepository<LaborReportApprovalRecord, Guid> _approvalRecordRepository;
         private readonly IRepository<Project, Guid> _ProjectRepository;
+        IRepository<ProductSeries.ProductSeries, Guid> _productSeriesRepository;
 
         public LaborReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
@@ -39,7 +41,8 @@ namespace SC_LaborReporting.LaborReports
             IRepository<OrganizationUnit, Guid> organizationUnitRepository,
             IRepository<LaborReportApprovalStatus, Guid> approvalStatusRepository,
             IRepository<LaborReportApprovalRecord, Guid> approvalRecordRepository,
-            IRepository<Project, Guid> ProjectRepository)
+            IRepository<Project, Guid> ProjectRepository,
+            IRepository<ProductSeries.ProductSeries, Guid> productSeriesRepository)
         {
             _reportRepository = reportRepository;
             _detailRepository = detailRepository;
@@ -50,6 +53,7 @@ namespace SC_LaborReporting.LaborReports
             _approvalStatusRepository = approvalStatusRepository;
             _approvalRecordRepository = approvalRecordRepository;
             _ProjectRepository = ProjectRepository;
+            _productSeriesRepository = productSeriesRepository;
         }
 
         // 查询接口
@@ -76,7 +80,8 @@ namespace SC_LaborReporting.LaborReports
                 LaborCategoryCode = d.LaborCategoryCode,
                 ProjectId = d.ProjectId,
                 Hours = d.Hours,
-                Status = d.Status
+                Status = d.Status,
+                ProductSeriesId = d.ProductSeriesId
             }).ToList();
             return result;
         }
@@ -169,20 +174,32 @@ namespace SC_LaborReporting.LaborReports
             {
                 if (statusInfo.CurrentLevel == 1)
                 {
-                    statusInfo.CurrentLevel = 2;
-                    statusInfo.Status = ApprovalStatus.Approving;
-                }
-                else if (statusInfo.CurrentLevel == 2)
-                {
-                    statusInfo.Status = ApprovalStatus.Completed;
-                    detail.Status = LaborReportStatus.Approved;
-                    report.RecalculateHours();
-                }
-            }
+                    var nextRecord = await _approvalRecordRepository.FirstOrDefaultAsync(x =>
+                        x.LaborReportDetailId == input.DetailId &&
+                        x.Level == 2);
 
-            await _approvalStatusRepository.UpdateAsync(statusInfo);
-            await _reportRepository.UpdateAsync(report);
-            CalculateAndAssignHoursFinance(report.Details.ToList());
+                    if (nextRecord != null && nextRecord.ApproverId == CurrentUser.Id)
+                    {
+                        nextRecord.Status = ApprovalRecordStatus.Approved;
+                        nextRecord.Comment = string.IsNullOrWhiteSpace(input.Comment) ? "一、二级审批人为同一人，系统自动审批通过" : $"[自动审批] {input.Comment}";
+                        nextRecord.ApprovalTime = Clock.Now;
+                        await _approvalRecordRepository.UpdateAsync(nextRecord);
+                        statusInfo.CurrentLevel = 2;
+                        statusInfo.Status = ApprovalStatus.Completed;
+                        detail.Status = LaborReportStatus.Approved;
+                        report.RecalculateHours();
+                    }
+                    else
+                    {
+                        statusInfo.CurrentLevel = 2;
+                        statusInfo.Status = ApprovalStatus.Approving;
+                    }
+                }
+
+                await _approvalStatusRepository.UpdateAsync(statusInfo);
+                await _reportRepository.UpdateAsync(report);
+                CalculateAndAssignHoursFinance(report.Details.ToList());
+            }
         }
 
         // 撤回接口
@@ -289,7 +306,8 @@ namespace SC_LaborReporting.LaborReports
                         projectCode: dto.ProjectCode ?? "-",
                         projectName: dto.ProjectName ?? "-",
                         projectRoleId: dto.ProjectRoleId,
-                        projectRoleName: dto.ProjectRoleName ?? "-"
+                        projectRoleName: dto.ProjectRoleName ?? "-",
+                        productSeriesId: dto.ProductSeriesId
                     );
 
                     report.Details.Add(newDetail);
@@ -369,9 +387,16 @@ namespace SC_LaborReporting.LaborReports
             Guid level1ApproverId = myManagerId.Value;
 
             // 寻找项目负责人
-            var project = await _ProjectRepository.FirstOrDefaultAsync(x => x.Id == ProjectId);
-            Guid level2ApproverId = project.ManagerId;
-
+            Guid level2ApproverId;
+            if (ProjectId == null)
+            {
+                 level2ApproverId = myManagerId.Value;
+            }
+            else
+            {
+                var project = await _ProjectRepository.FirstOrDefaultAsync(x => x.Id == ProjectId);
+                level2ApproverId = project.ManagerId;
+            }
             var oldStatus = await _approvalStatusRepository.FirstOrDefaultAsync(x => x.LaborReportDetailId == detailId);
             if (oldStatus != null)
             {

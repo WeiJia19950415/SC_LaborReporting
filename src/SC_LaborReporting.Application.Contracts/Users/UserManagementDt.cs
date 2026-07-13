@@ -4,6 +4,13 @@ using Volo.Abp.Application.Dtos;
 
 namespace SC_LaborReporting.Users;
 
+
+public class UserListQueryDto : PagedAndSortedResultRequestDto
+{
+    public string? Filter { get; set; }
+    public Guid? DepartmentId { get; set; }
+}
+
 // 列表与详情返回实体
 public class UserDetailDto : EntityDto<Guid>
 {
