@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Authorization;
+using SC_LaborReporting.ProjectRoles;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -16,15 +17,18 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
     private readonly IRepository<LaborCategory, Guid> _repository;
     private readonly IRepository<OrganizationUnit, Guid> _ouRepository; // 注入部门仓储用于查全称
     private readonly IdentityUserManager _userManager;
+    private readonly IRepository<ProjectRole, Guid> _projectRoleRepository;
 
     public LaborCategoryAppService(
         IRepository<LaborCategory, Guid> repository,
         IRepository<OrganizationUnit, Guid> ouRepository,
-        IdentityUserManager userManager)
+        IdentityUserManager userManager,
+        IRepository<ProjectRole, Guid> projectRoleRepository)
     {
         _repository = repository;
         _ouRepository = ouRepository;
         _userManager = userManager;
+        _projectRoleRepository = projectRoleRepository;
     }
     public async Task<List<LaborCategoryDto>> GetLeafCategoriesAsync(Guid? projectRoleId, Guid? departmentId, LaborClass laborClass)
     {
@@ -37,16 +41,17 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         var leafQuery = query.Where(x => !parentIds.Contains(x.Id) && x.LaborClass == laborClass);
         if (departmentId.HasValue)
         {
-            leafQuery = leafQuery.Where(x => x.Departments.Any(d => d.DepartmentId == departmentId.Value));
+            leafQuery = leafQuery.Where(x => x.Departments.Any(d => d.DepartmentId == departmentId.Value) || x.Departments.Count == 0);
         }
         if (projectRoleId.HasValue)
         {
-            leafQuery = leafQuery.Where(x => x.ProjectRoles.Any(r => r.ProjectRoleId == projectRoleId.Value));
+            leafQuery = leafQuery.Where(x => x.ProjectRoles.Any(r => r.ProjectRoleId == projectRoleId.Value) || x.ProjectRoles.Count == 0);
         }
         var leafNodes = await AsyncExecuter.ToListAsync(leafQuery);
         var dtos = ObjectMapper.Map<List<LaborCategory>, List<LaborCategoryDto>>(leafNodes);
         var allCategories = await _repository.GetListAsync();
         var categoryDict = allCategories.ToDictionary(x => x.Id);
+        
         foreach (var dto in dtos)
         {
             var hierarchyNames = new List<string>();
@@ -63,16 +68,16 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 
     public async Task<ListResultDto<LaborCategoryDto>> GetListAsync()
     {
-        // ⭐ 1. 贪婪加载关联子表
+
         var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
         var categories = query.ToList();
         categories.Sort((x, y) => string.Compare(x.Code, y.Code, StringComparison.Ordinal));
 
-        // ⭐ 2. 预加载所有部门，用于动态计算全称 (避免 N+1 查询问题)
+
         var allOus = await _ouRepository.GetListAsync();
         var ouDict = allOus.ToDictionary(x => x.Id, x => x);
 
-        // 递归获取全称的本地方法
+
         string GetDepartmentFullName(Guid id)
         {
             if (!ouDict.ContainsKey(id)) return "";
@@ -90,12 +95,8 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         foreach (var item in categories)
         {
             var dto = ObjectMapper.Map<LaborCategory, LaborCategoryDto>(item);
-
-            // 手动映射子表数据
             dto.DepartmentIds = item.Departments.Select(d => d.DepartmentId).ToArray();
             dto.ProjectRoleIds = item.ProjectRoles.Select(r => r.ProjectRoleId).ToArray();
-
-            // ⭐ 3. 动态组装部门全称
             dto.DepartmentFullNames = dto.DepartmentIds.Select(id => GetDepartmentFullName(id)).ToArray();
 
             dtoList.Add(dto);
@@ -117,7 +118,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 
         category.Code = await GetNextChildCodeAsync(input.ParentId);
 
-        // ⭐ 插入关系表
+
         if (input.DepartmentIds != null)
         {
             foreach (var deptId in input.DepartmentIds)
@@ -137,10 +138,10 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 
     public async Task<LaborCategoryDto> UpdateAsync(Guid id, CreateUpdateLaborCategoryInput input)
     {
-        // 防护：自关联不能是自己
+
         if (input.ParentId == id) throw new Exception("上级分类不能是当前分类本身！");
 
-        // 使用 IncludeDetails 获取带有子表的数据
+
         var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
         var category = query.FirstOrDefault(x => x.Id == id);
 
@@ -149,7 +150,6 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         category.Name = input.Name;
         category.Remark = input.Remark;
 
-        // 如果修改了上级分类，重新生成 Code
         if (category.ParentId != input.ParentId)
         {
             category.ParentId = input.ParentId;
@@ -164,7 +164,6 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             category.Departments.Remove(dept);
         }
 
-        // 2. 添加前端新增的项 (利用刚刚写的构造函数，并通过 GuidGenerator.Create() 生成唯一主键)
         var existingDeptIds = category.Departments.Select(d => d.DepartmentId).ToList();
         var deptsToAdd = currentDeptIds.Where(deptId => !existingDeptIds.Contains(deptId)).ToList();
         foreach (var deptId in deptsToAdd)
@@ -173,14 +172,13 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         }
 
         var currentRoles = input.ProjectRoleIds;
-        // 1. 删除前端已取消勾选的项
+
         var rolesToRemove = category.ProjectRoles.Where(r => !currentRoles.Contains(r.ProjectRoleId)).ToList();
         foreach (var role in rolesToRemove)
         {
             category.ProjectRoles.Remove(role);
         }
 
-        // 2. 添加前端新增的项
         var existingRoles = category.ProjectRoles.Select(r => r.ProjectRoleId).ToList();
         var rolesToAdd = currentRoles.Where(r => !existingRoles.Contains(r)).ToList();
         foreach (var roleName in rolesToAdd)
@@ -197,7 +195,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         var childrenCount = await _repository.CountAsync(x => x.ParentId == id);
         if (childrenCount > 0) throw new Exception("存在下级分类，无法删除");
 
-        // EF Core 配置了级联删除或在 Repository 中删除时会自动清理关联表
+
         await _repository.DeleteAsync(id);
     }
     private async Task<string> GetNextChildCodeAsync(Guid? parentId)
@@ -224,5 +222,200 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             return (number + 1).ToString(new string('0', lastCode.Length));
         }
         return "001";
+    }
+
+
+    public async Task ImportAsync(List<LaborCategoryImportDto> inputs)
+    {
+        // 构建部门全称字典 (如: 事业一部-研发-软件组 -> Guid)
+        var allOus = await _ouRepository.GetListAsync();
+        var ouFullNameDict = new Dictionary<string, Guid>();
+        foreach (var ou in allOus)
+        {
+            var pathNames = new List<string>();
+            var current = ou;
+            while (current != null)
+            {
+                pathNames.Insert(0, current.DisplayName);
+                current = current.ParentId.HasValue ? allOus.FirstOrDefault(x => x.Id == current.ParentId.Value) : null;
+            }
+            ouFullNameDict[string.Join("-", pathNames)] = ou.Id;
+        }
+
+        // 构建角色字典 (如: 软件开发组 -> Guid)
+        var allRoles = await _projectRoleRepository.GetListAsync();
+        var roleDict = allRoles.ToDictionary(x => x.Name, x => x.Id);
+
+        // 记录 Excel 树形层级的状态
+        string lastType = null, lastClass = null;
+        string lastL1 = null, lastL2 = null, lastL3 = null, lastL4 = null;
+
+        foreach (var row in inputs)
+        {
+            if (!string.IsNullOrWhiteSpace(row.LaborType)) lastType = row.LaborType;
+            if (!string.IsNullOrWhiteSpace(row.LaborClass)) lastClass = row.LaborClass;
+
+            if (!string.IsNullOrWhiteSpace(row.Level1)) { lastL1 = row.Level1; lastL2 = null; lastL3 = null; lastL4 = null; }
+            if (!string.IsNullOrWhiteSpace(row.Level2)) { lastL2 = row.Level2; lastL3 = null; lastL4 = null; }
+            if (!string.IsNullOrWhiteSpace(row.Level3)) { lastL3 = row.Level3; lastL4 = null; }
+            if (!string.IsNullOrWhiteSpace(row.Level4)) { lastL4 = row.Level4; }
+
+            var t = lastType?.Trim() == "生产工时" ? LaborType.Production : LaborType.RAndD;
+            var c = lastClass?.Trim() == "其他工时" ? LaborClass.Other : LaborClass.Project;
+
+            var deptIds = ParseNamesToIds(row.Departments, ouFullNameDict);
+            var roleIds = ParseNamesToIds(row.ProjectRoles, roleDict);
+
+            Guid? parentId = null;
+
+            // 逐级处理，存在则更新，不存在则新增
+            if (!string.IsNullOrWhiteSpace(lastL1))
+            {
+                bool isLeaf = string.IsNullOrWhiteSpace(lastL2);
+                var l1Node = await CreateOrUpdateNodeAsync(lastL1.Trim(), null, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                parentId = l1Node.Id;
+
+                if (!isLeaf && !string.IsNullOrWhiteSpace(lastL2))
+                {
+                    isLeaf = string.IsNullOrWhiteSpace(lastL3);
+                    var l2Node = await CreateOrUpdateNodeAsync(lastL2.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                    parentId = l2Node.Id;
+
+                    if (!isLeaf && !string.IsNullOrWhiteSpace(lastL3))
+                    {
+                        isLeaf = string.IsNullOrWhiteSpace(lastL4);
+                        var l3Node = await CreateOrUpdateNodeAsync(lastL3.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                        parentId = l3Node.Id;
+
+                        if (!isLeaf && !string.IsNullOrWhiteSpace(lastL4))
+                        {
+                            var l4Node = await CreateOrUpdateNodeAsync(lastL4.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, true);
+                            parentId = l4Node.Id;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    private async Task<LaborCategory> CreateOrUpdateNodeAsync(
+        string name, Guid? parentId,
+        LaborType type, LaborClass cls,
+        string remark,
+        List<Guid> deptIds,
+        List<Guid> roleIds,
+        bool isLeaf)
+    {
+        // 包含导航属性的查询，用于更新部门和角色关系
+        var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
+        // 关键逻辑：仅通过 名称 + 父级ID 判断是否存在
+        var node = query.FirstOrDefault(x => x.Name == name && x.ParentId == parentId);
+
+        if (node != null)
+        {
+            bool isModified = false;
+            if (node.LaborType != type) { node.LaborType = type; isModified = true; }
+            if (node.LaborClass != cls) { node.LaborClass = cls; isModified = true; }
+            if (isLeaf)
+            {
+                var safeRemark = remark ?? "";
+                if (node.Remark != safeRemark)
+                {
+                    node.Remark = safeRemark;
+                    isModified = true;
+                }
+                var existingDeptIds = node.Departments.Select(d => d.DepartmentId).ToList();
+                var deptToAdd = deptIds.Except(existingDeptIds).ToList();
+                var deptToRemove = existingDeptIds.Except(deptIds).ToList();
+                if (deptToRemove.Any())
+                {
+                    node.Departments.RemoveAll(d => deptToRemove.Contains(d.DepartmentId));
+                    isModified = true;
+                }
+                foreach (var dId in deptToAdd)
+                {
+                    node.Departments.Add(new LaborCategoryDepartment(GuidGenerator.Create(), node.Id, dId));
+                    isModified = true;
+                }
+                var existingRoleIds = node.ProjectRoles.Select(r => r.ProjectRoleId).ToList();
+                var roleToAdd = roleIds.Except(existingRoleIds).ToList();
+                var roleToRemove = existingRoleIds.Except(roleIds).ToList();
+                if (roleToRemove.Any())
+                {
+                    node.ProjectRoles.RemoveAll(r => roleToRemove.Contains(r.ProjectRoleId));
+                    isModified = true;
+                }
+                foreach (var rId in roleToAdd)
+                {
+                    node.ProjectRoles.Add(new LaborCategoryProjectRole { LaborCategoryId = node.Id, ProjectRoleId = rId });
+                    isModified = true;
+                }
+            }
+
+            if (isModified)
+            {
+                await _repository.UpdateAsync(node);
+                await CurrentUnitOfWork.SaveChangesAsync(); // 强制提交
+            }
+
+            return node;
+        }
+        else
+        {
+            var input = new CreateUpdateLaborCategoryInput
+            {
+                Name = name,
+                ParentId = parentId,
+                LaborType = type,
+                LaborClass = cls,
+                Remark = isLeaf ? (remark ?? "") : "" // 防止 NULL 报错
+            };
+
+            var dto = await CreateAsync(input);
+            await CurrentUnitOfWork.SaveChangesAsync(); // 强制提交保存，生成主键
+
+            // 重新查出该实体以插入子表关系
+            var newQuery = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
+            var createdNode = newQuery.FirstOrDefault(x => x.Id == dto.Id);
+
+            if (isLeaf && createdNode != null)
+            {
+                if (deptIds != null && deptIds.Any())
+                {
+                    foreach (var dId in deptIds)
+                    {
+                        createdNode.Departments.Add(new LaborCategoryDepartment(GuidGenerator.Create(), createdNode.Id, dId));
+                    }
+                }
+                if (roleIds != null && roleIds.Any())
+                {
+                    foreach (var rId in roleIds)
+                    {
+                        createdNode.ProjectRoles.Add(new LaborCategoryProjectRole { LaborCategoryId = createdNode.Id, ProjectRoleId = rId });
+                    }
+                }
+                await _repository.UpdateAsync(createdNode);
+                await CurrentUnitOfWork.SaveChangesAsync();
+            }
+
+            return createdNode ?? await _repository.GetAsync(dto.Id);
+        }
+    }
+
+    private List<Guid> ParseNamesToIds(string str, Dictionary<string, Guid> dict)
+    {
+        var ids = new List<Guid>();
+        if (string.IsNullOrWhiteSpace(str)) return ids;
+
+        var names = str.Split(new[] { ',', '，' }, StringSplitOptions.RemoveEmptyEntries);
+        foreach (var name in names)
+        {
+            if (dict.TryGetValue(name.Trim(), out var id))
+            {
+                ids.Add(id);
+            }
+        }
+        return ids;
     }
 }

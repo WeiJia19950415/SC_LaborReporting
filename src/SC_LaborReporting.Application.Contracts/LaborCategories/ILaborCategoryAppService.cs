@@ -14,5 +14,6 @@ namespace SC_LaborReporting.LaborCategories
         Task<LaborCategoryDto> CreateAsync(CreateUpdateLaborCategoryInput input);
         Task<LaborCategoryDto> UpdateAsync(Guid id, CreateUpdateLaborCategoryInput input);
         Task DeleteAsync(Guid id);
+        Task ImportAsync(List<LaborCategoryImportDto> inputs);
     }
 }

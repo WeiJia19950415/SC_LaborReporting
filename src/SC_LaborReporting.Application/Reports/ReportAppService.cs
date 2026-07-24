@@ -170,7 +170,7 @@ namespace SC_LaborReporting.Reports
                                      .Select(g => new ChartDataDto
                                      {
                                          ReferenceId = g.Key.ProjectId,
-                                         Name = string.IsNullOrEmpty(g.Key.ProjectName) ? "其它工时" : g.Key.ProjectName,
+                                         Name = string.IsNullOrEmpty(g.Key.ProjectName) || g.Key.ProjectName == "-" ? "其它工时" : g.Key.ProjectName,
                                          Value = g.Sum(x => x.Hours)
                                      }).ToList();
                 return grouped;
@@ -255,6 +255,17 @@ namespace SC_LaborReporting.Reports
 
             var pagedDetails = details.Skip(input.SkipCount).Take(input.MaxResultCount).ToList();
             var dtos = await BuildDetailDtosAsync(pagedDetails);
+            foreach (var item in dtos)
+            {
+                if (item.LaborClass == "Other")
+                {
+                    item.LaborClass = "其他工时";
+                }
+                else
+                {
+                    item.LaborClass = "项目工时";
+                }
+            }
 
             return new PagedResultDto<DepartmentReportDetailDto>(totalCount, dtos);
         }

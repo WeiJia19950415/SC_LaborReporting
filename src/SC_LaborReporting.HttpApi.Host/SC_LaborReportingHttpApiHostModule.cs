@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Cors;
 using Microsoft.AspNetCore.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -112,6 +113,21 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
             options.AutoValidate = false;
         });
 
+        // 配置 Identity 密码规则
+        Configure<IdentityOptions>(options =>
+        {
+            // 密码最小长度
+            options.Password.RequiredLength = 6;
+            // 是否必须包含数字
+            options.Password.RequireDigit = false;
+            // 是否必须包含小写字母
+            options.Password.RequireLowercase = false;
+            // 是否必须包含大写字母
+            options.Password.RequireUppercase = false;
+            // 是否必须包含特殊字符（如 @, #, $, % 等）
+            options.Password.RequireNonAlphanumeric = false;
+        });
+
         if (!configuration.GetValue<bool>("App:DisablePII"))
         {
             Microsoft.IdentityModel.Logging.IdentityModelEventSource.ShowPII = true;
@@ -165,8 +181,8 @@ public class SC_LaborReportingHttpApiHostModule : AbpModule
 
         context.Services.ConfigureApplicationCookie(options =>
         {
-            // 设置Cookie过期时间为20分钟，默认是14天
-            options.ExpireTimeSpan = TimeSpan.FromMinutes(20); 
+            // 设置Cookie过期时间为1天
+            options.ExpireTimeSpan = TimeSpan.FromDays(1); 
             options.SlidingExpiration = true; // 启用滑动过期，这样每次请求都会刷新过期时间
         });
     }
