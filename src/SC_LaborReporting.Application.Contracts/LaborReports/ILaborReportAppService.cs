@@ -1,8 +1,9 @@
-﻿using SC_LaborReporting.LaborCategories;
+﻿using Microsoft.AspNetCore.Mvc;
+using SC_LaborReporting.LaborCategories;
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Mvc;
+using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
 
 namespace SC_LaborReporting.LaborReports
@@ -21,16 +22,20 @@ namespace SC_LaborReporting.LaborReports
         Task UpdateDetailAsync(Guid reportId, Guid detailId, UpdateLaborReportDetailDto input);
 
         //删除从表
-        Task DeleteDetailAsync(Guid reportId, Guid detailId);
+        Task DeleteDetailAsync(Guid detailId);
 
         //审核通过
         Task ApproveAsync(ApproveInputDto input);
 
-        Task WithdrawAsync(Guid reportId, Guid detailId);
+        Task WithdrawAsync(Guid detailId);
 
         Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate);
 
         // 查询当前登录人待审批的工时明细
         Task<List<LaborReportItemDto>> GetPendingApprovalsAsync(Guid? reporterId, Guid? departmentId, Guid? projectId);
+
+        Task<List<LaborReportApprovalRecordDto>> GetApprovalRecordsAsync(Guid id);
+
+        Task<PagedResultDto<ApprovalHistoryDto>> GetApprovalHistoryAsync(GetApprovalHistoryInput input);
     }
 }

@@ -7,6 +7,7 @@ public class UserReportQueryDto
     public DateTime EndDate { get; set; }
     public Guid? DepartmentId { get; set; }
     public Guid? UserId { get; set; }
+    public int? Status { get; set; }
 }
 
 // 扁平化的明细返回对象

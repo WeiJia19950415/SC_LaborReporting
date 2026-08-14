@@ -15,7 +15,6 @@ namespace SC_LaborReporting.Menu
         {
             _permissionChecker = permissionChecker;
         }
-
         public async Task<List<MenuDto>> GetMenusAsync()
         {
             var menus = new List<MenuDto>();
@@ -28,7 +27,6 @@ namespace SC_LaborReporting.Menu
                     Path = "/system"
                 });
             }
-
             return menus;
         }
     }

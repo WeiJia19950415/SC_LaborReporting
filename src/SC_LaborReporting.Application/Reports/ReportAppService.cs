@@ -1,7 +1,7 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using SC_LaborReporting.LaborCategories; // 引入工时分类命名空间
+using SC_LaborReporting.LaborCategories; 
 using SC_LaborReporting.LaborReports;
 using SC_LaborReporting.Permissions;
 using SC_LaborReporting.Projects;
@@ -25,10 +25,8 @@ namespace SC_LaborReporting.Reports
         private readonly IRepository<IdentityUser, Guid> _userRepository;
         private readonly IRepository<OrganizationUnit, Guid> _ouRepository;
         private readonly IAuthorizationService _authorizationService;
-
         private readonly IRepository<LaborReportDetail, Guid> _detailRepository;
         private readonly IRepository<Project, Guid> _ProjectRepository;
-
         public ReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
             IRepository<LaborCategory, Guid> laborCategoryRepository,
@@ -48,7 +46,6 @@ namespace SC_LaborReporting.Reports
             _detailRepository = detailRepository;
             _ProjectRepository = ProjectRepository;
         }
-
         public async Task<LaborReportMonthlySummaryDto> GetMonthlySummaryAsync(DateTime startDate, DateTime endDate)
         {
             var userId = CurrentUser.Id;
@@ -98,11 +95,11 @@ namespace SC_LaborReporting.Reports
                         ReporterId = report.ReporterId,
                         DepartmentId = report.DepartmentId,
                         ReportDate = report.ReportDate,
-                        LaborCategoryId = d.LaborCategoryId,
+                        LaborCategoryId = d.LaborCategoryId.Value,
                         LaborCategoryCode = d.LaborCategoryCode,
-                        LaborCategoryFullName = fullNameText, 
+                        LaborCategoryFullName = fullNameText,
                         ProjectId = d.ProjectId,
-                        ProjectName = d.ProjectName,
+                        ProjectName = d.ProjectName == "-" ? "其他工时" : d.ProjectName,
                         ProjectCode = d.ProjectCode,
                         ProjectRoleId = d.ProjectRoleId,
                         ProjectRoleName = d.ProjectRoleName,
@@ -121,23 +118,58 @@ namespace SC_LaborReporting.Reports
             var userId = CurrentUser.Id;
             if (!userId.HasValue) throw new UserFriendlyException("未检测到有效登录用户");
 
-            var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL);
-
+            // 1. 获取主表查询对象并应用基础的时间条件
             var query = await _reportRepository.WithDetailsAsync(x => x.Details);
             var queryable = query.Where(x => x.ReportDate >= input.StartDate && x.ReportDate <= input.EndDate);
+
+            // 2. 【新增】如果前端查询面板指定了某个特定部门，优先按这个部门查！
+            // （假设你的 DepartmentReportQueryDto 中有 DepartmentId 字段，如果有别的名字请对应修改）
+            // 注意：利用反射或者看你之前的 DTO，如果有这个字段就必须加上
+            /* 
+            if (input.DepartmentId.HasValue)
+            {
+                queryable = queryable.Where(x => x.DepartmentId == input.DepartmentId.Value);
+            }
+            */
+
+            // 3. 数据权限隔离控制（划定最大可见边界）
+            var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL);
 
             if (!hasAllDataPermission)
             {
                 var user = await _userManager.GetByIdAsync(userId.Value);
-                var ous = await _userManager.GetOrganizationUnitsAsync(user);
-                var myOuIds = ous.Select(o => o.Id).ToList();
+                var userOus = await _userManager.GetOrganizationUnitsAsync(user);
 
-                queryable = queryable.Where(x => myOuIds.Contains(x.DepartmentId));
+                if (!userOus.Any())
+                {
+                    return new List<LaborReportDetail>(); // 无权限且无部门，直接返回空
+                }
+
+                var allOuQuery = await _ouRepository.GetQueryableAsync();
+                var allowedOuIds = new List<Guid>();
+
+                foreach (var userOu in userOus)
+                {
+                    // 抓取当前部门及其所有下级部门
+                    var subOuIds = allOuQuery
+                        .Where(ou => ou.Code.StartsWith(userOu.Code))
+                        .Select(ou => ou.Id)
+                        .ToList();
+
+                    allowedOuIds.AddRange(subOuIds);
+                }
+
+                allowedOuIds = allowedOuIds.Distinct().ToList();
+
+                // 核心：强制增加数据库层面的 IN 条件，绝不可能被后续的布尔值突破
+                queryable = queryable.Where(x => allowedOuIds.Contains(x.DepartmentId));
             }
 
+            // 4. 发送 SQL 到数据库，拉取被部门和日期过滤后的【安全数据】
             var reports = await queryable.ToListAsync();
             var details = reports.SelectMany(x => x.Details).ToList();
 
+            // 5. 在内存中，对安全数据进行状态过滤
             if (!input.IncludeUnapproved)
             {
                 details = details.Where(x => x.Status == LaborReportStatus.Approved).ToList();
@@ -147,6 +179,7 @@ namespace SC_LaborReporting.Reports
                 details = details.Where(x => x.Status == LaborReportStatus.Approved || x.Status == LaborReportStatus.Pending).ToList();
             }
 
+            // 6. 其他条件过滤
             if (input.FilterByProject)
             {
                 details = details.Where(x => x.ProjectId == input.ProjectId).ToList();
@@ -159,7 +192,6 @@ namespace SC_LaborReporting.Reports
 
             return details;
         }
-
         public async Task<List<ChartDataDto>> GetDepartmentChartAsync(DepartmentReportQueryDto input)
         {
             var details = await GetFilteredDetailsAsync(input);
@@ -204,7 +236,6 @@ namespace SC_LaborReporting.Reports
                 return result;
             }
         }
-
         private async Task<List<DepartmentReportDetailDto>> BuildDetailDtosAsync(List<LaborReportDetail> details)
         {
             var categories = await _laborCategoryRepository.GetListAsync();
@@ -214,9 +245,30 @@ namespace SC_LaborReporting.Reports
             var users = await _userRepository.GetListAsync(x => reporterIds.Contains(x.Id));
             var userMap = users.ToDictionary(x => x.Id, x => x.Name ?? x.UserName);
 
-            var ouIds = details.Select(x => x.LaborReport.DepartmentId).Distinct().ToList();
-            var ous = await _ouRepository.GetListAsync(x => ouIds.Contains(x.Id));
-            var ouMap = ous.ToDictionary(x => x.Id, x => x.DisplayName);
+            // ================= 【升级：组装包含上级部门的完整名称】 =================
+            // 部门表数据量通常不大，一次性拉取全表进内存进行 ParentId 追溯能极大减少数据库查询次数
+            var allOus = await _ouRepository.GetListAsync();
+            var ouFullNames = new Dictionary<Guid, string>();
+
+            var targetOuIds = details.Select(x => x.LaborReport.DepartmentId).Distinct().ToList();
+
+            foreach (var targetOuId in targetOuIds)
+            {
+                var ouNamePieces = new List<string>();
+                var currentOu = allOus.FirstOrDefault(x => x.Id == targetOuId);
+
+                // 循环向上追溯上级部门，直到顶级部门
+                while (currentOu != null)
+                {
+                    ouNamePieces.Insert(0, currentOu.DisplayName); // 每次插入到列表头部
+                    currentOu = currentOu.ParentId.HasValue
+                        ? allOus.FirstOrDefault(x => x.Id == currentOu.ParentId.Value)
+                        : null;
+                }
+
+                // 将层级名称使用 " - " 拼接，例如："总公司 - 研发中心 - 前端开发组"
+                ouFullNames[targetOuId] = string.Join(" - ", ouNamePieces);
+            }
 
             var dtos = new List<DepartmentReportDetailDto>();
 
@@ -237,7 +289,10 @@ namespace SC_LaborReporting.Reports
                     ProjectCode = d.ProjectCode,
                     ProjectRoleName = d.ProjectRoleName,
                     ReporterName = userMap.TryGetValue(d.LaborReport.ReporterId, out var uname) ? uname : "",
-                    DepartmentFullName = ouMap.TryGetValue(d.LaborReport.DepartmentId, out var ouname) ? ouname : "",
+
+                    // 赋值刚刚拼接好的完整部门层级名称
+                    DepartmentFullName = ouFullNames.TryGetValue(d.LaborReport.DepartmentId, out var ouname) ? ouname : "",
+
                     LaborCategoryFullName = string.Join(" - ", nameList),
                     Jobresponsibilities = d.Jobresponsibilities,
                     Hours = d.Hours,
@@ -247,7 +302,6 @@ namespace SC_LaborReporting.Reports
 
             return dtos.OrderByDescending(x => x.Status).ToList();
         }
-
         public async Task<PagedResultDto<DepartmentReportDetailDto>> GetDepartmentTableAsync(DepartmentReportQueryDto input)
         {
             var details = await GetFilteredDetailsAsync(input);
@@ -269,7 +323,6 @@ namespace SC_LaborReporting.Reports
 
             return new PagedResultDto<DepartmentReportDetailDto>(totalCount, dtos);
         }
-
         [HttpGet]
         public async Task<ExportFileDto> ExportDepartmentTableAsync(DepartmentReportQueryDto input)
         {
@@ -302,73 +355,143 @@ namespace SC_LaborReporting.Reports
             }
             return field;
         }
-
-
         public async Task<List<UserDailyProjectReportDto>> GetUserCrossReportAsync(UserReportQueryDto input)
         {
-            // 1. 获取主表查询对象
-            var query = await _reportRepository.GetQueryableAsync();
+            var currentUserId = CurrentUser.Id;
+            if (!currentUserId.HasValue) throw new UserFriendlyException("未检测到有效登录用户");
 
-            // 2. 针对主表 (LaborReport) 的过滤条件：日期、部门、人员
-            var reportQuery = query.Where(r =>
-                r.ReportDate.Date >= input.StartDate.Date &&
-                r.ReportDate.Date <= input.EndDate.Date);
+            // ================= 1. 获取目标用户集合 (无需额外注入仓储) =================
+            var allOuQuery = await _ouRepository.GetQueryableAsync();
+            var userQuery = await _userRepository.GetQueryableAsync();
 
+            // 初始过滤：只查出分配了至少一个部门的用户 (底层自动翻译为 EXISTS SQL)
+            var targetUsersQuery = userQuery.Where(u => u.OrganizationUnits.Any());
+
+            // 过滤1：前端传入了指定的查询部门
             if (input.DepartmentId.HasValue)
             {
-                reportQuery = reportQuery.Where(r => r.DepartmentId == input.DepartmentId.Value);
+                var selectedOu = await _ouRepository.GetAsync(input.DepartmentId.Value);
+                // 【修复】必须使用 ToListAsync() 避免 500 报错
+                var subOuIds = await allOuQuery
+                    .Where(ou => ou.Code.StartsWith(selectedOu.Code))
+                    .Select(ou => ou.Id)
+                    .ToListAsync();
+
+                targetUsersQuery = targetUsersQuery.Where(u => u.OrganizationUnits.Any(ou => subOuIds.Contains(ou.OrganizationUnitId)));
             }
-            if (input.UserId.HasValue)
+            // 过滤2：没有传部门时，走数据权限隔离规则
+            else
             {
-                reportQuery = reportQuery.Where(r => r.ReporterId == input.UserId.Value);
+                var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL);
+                if (!hasAllDataPermission)
+                {
+                    var user = await _userManager.GetByIdAsync(currentUserId.Value);
+                    var userOus = await _userManager.GetOrganizationUnitsAsync(user);
+
+                    if (!userOus.Any()) return new List<UserDailyProjectReportDto>();
+
+                    var allowedOuIds = new List<Guid>();
+                    foreach (var userOu in userOus)
+                    {
+                        // 【修复】必须使用 ToListAsync()
+                        var subOuIds = await allOuQuery
+                            .Where(ou => ou.Code.StartsWith(userOu.Code))
+                            .Select(ou => ou.Id)
+                            .ToListAsync();
+                        allowedOuIds.AddRange(subOuIds);
+                    }
+                    allowedOuIds = allowedOuIds.Distinct().ToList();
+
+                    // 限制为只能看到权限范围内部门的用户
+                    targetUsersQuery = targetUsersQuery.Where(u => u.OrganizationUnits.Any(ou => allowedOuIds.Contains(ou.OrganizationUnitId)));
+                }
             }
 
-            // 3. 核心：展开从表 (Details)，并在从表层级过滤出 Status == Approved 的记录
+            // 过滤3：前端单独筛选了某个人
+            if (input.UserId.HasValue)
+            {
+                targetUsersQuery = targetUsersQuery.Where(u => u.Id == input.UserId.Value);
+            }
+
+            // 【修复】将目标用户的 Id 和 Name 异步拉取到内存中，避免查全表造成浪费
+            var targetUsers = await targetUsersQuery.Select(u => new { u.Id, u.Name }).ToListAsync();
+            var targetUserIds = targetUsers.Select(u => u.Id).ToList();
+
+            // 如果连满足条件的用户都没有，直接返回空
+            if (!targetUserIds.Any()) return new List<UserDailyProjectReportDto>();
+
+
+            // ================= 2. 批量拉取这些目标用户的工时数据 =================
+            var query = await _reportRepository.GetQueryableAsync();
+            var nextDay = input.EndDate.Date.AddDays(1);
+
+            var reportQuery = query.Where(r =>
+                targetUserIds.Contains(r.ReporterId) &&
+                r.ReportDate >= input.StartDate.Date &&
+                r.ReportDate < nextDay);
+
             var detailQuery = reportQuery.SelectMany(r => r.Details
-                .Where(d => d.Status == LaborReportStatus.Approved)
+                .Where(d => input.Status == 3 ? d.Status == LaborReportStatus.Approved : true)
                 .Select(d => new
                 {
                     Date = r.ReportDate.Date,
                     UserId = r.ReporterId,
                     ProjectId = d.ProjectId,
-                    ProjectName = d.ProjectName,  // 实体中自带了项目名称，直接取用
-                    Hours = d.Hours,              // 注意：实体里这里是 decimal
-                    HoursFinance = d.Hoursfinance // 实体里这里是 double
+                    ProjectName = d.ProjectName,
+                    Hours = d.Hours,
+                    HoursFinance = d.Hoursfinance
                 }));
 
-            // 4. 执行 SQL，将结果拉取到内存中
+            // 这里是真正的数据库执行
             var rawData = await detailQuery.ToListAsync();
-            if (!rawData.Any()) return new List<UserDailyProjectReportDto>();
 
-            // 5. 组装人员名称字典 (减少循环查询)
-            var userIds = rawData.Select(x => x.UserId).Distinct().ToList();
-            var userDict = await _userRepository.GetListAsync(x => userIds.Contains(x.Id));
 
-            // 6. 内存中执行按【日期+人员+项目】的分组和求和运算
-            var result = rawData
-                .GroupBy(x => new
+            // ================= 3. 内存 Left Join：拼装最终结果 =================
+            var result = new List<UserDailyProjectReportDto>();
+
+            // 以人为主体进行循环，确保所有人必定生成至少一条记录
+            foreach (var user in targetUsers)
+            {
+                var userReports = rawData.Where(x => x.UserId == user.Id).ToList();
+
+                if (userReports.Any())
                 {
-                    x.Date,
-                    x.UserId,
-                    // 处理非项目工时的情况（如果 ProjectId 为空，用 Guid.Empty 占位）
-                    ProjectId = x.ProjectId ?? Guid.Empty,
-                    ProjectName = string.IsNullOrWhiteSpace(x.ProjectName) ? "非项目工时" : x.ProjectName
-                })
-                .Select(g => new UserDailyProjectReportDto
+                    var userGrouped = userReports
+                        .GroupBy(x => new
+                        {
+                            x.Date,
+                            ProjectId = x.ProjectId ?? Guid.Empty,
+                            ProjectName = string.IsNullOrWhiteSpace(x.ProjectName) ? "非项目工时" : x.ProjectName
+                        })
+                        .Select(g => new UserDailyProjectReportDto
+                        {
+                            DateStr = g.Key.Date.ToString("yyyy-MM-dd"),
+                            UserId = user.Id,
+                            UserName = user.Name ?? "未知人员",
+                            ProjectId = g.Key.ProjectId,
+                            ProjectName = g.Key.ProjectName,
+                            TotalHours = (double)g.Sum(x => x.Hours),
+                            TotalFinanceHours = g.Sum(x => x.HoursFinance)
+                        });
+                    result.AddRange(userGrouped);
+                }
+                else
                 {
-                    DateStr = g.Key.Date.ToString("yyyy-MM-dd"),
-                    UserId = g.Key.UserId,
-                    UserName = userDict.FirstOrDefault(u => u.Id == g.Key.UserId)?.Name ?? "未知人员",
-                    ProjectId = g.Key.ProjectId,
-                    ProjectName = g.Key.ProjectName,
-                    // 将 decimal 的 Hours 转换为 double，统一返回类型
-                    TotalHours = (double)g.Sum(x => x.Hours),
-                    TotalFinanceHours = g.Sum(x => x.HoursFinance)
-                })
-                .ToList();
+                    // 该用户没有任何数据，塞入一条兜底的空数据
+                    result.Add(new UserDailyProjectReportDto
+                    {
+                        DateStr = string.Empty,
+                        UserId = user.Id,
+                        UserName = user.Name ?? "未知人员",
+                        ProjectId = Guid.Empty,
+                        ProjectName = "-",
+                        TotalHours = 0,
+                        TotalFinanceHours = 0
+                    });
+                }
+            }
 
             return result;
         }
-
     }
 }

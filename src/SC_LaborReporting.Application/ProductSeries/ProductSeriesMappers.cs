@@ -17,7 +17,6 @@ public partial class ProductSeriesCreateUpdateMapper : MapperBase<CreateUpdatePr
     [MapperIgnoreTarget(nameof(ProductSeries.DeleterId))]
     [MapperIgnoreTarget(nameof(ProductSeries.DeletionTime))]
     public override partial ProductSeries Map(CreateUpdateProductSeriesDto source);
-
     [MapperIgnoreTarget(nameof(ProductSeries.Id))]
     [MapperIgnoreTarget(nameof(ProductSeries.CreationTime))]
     [MapperIgnoreTarget(nameof(ProductSeries.CreatorId))]

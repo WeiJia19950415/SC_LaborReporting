@@ -47,11 +47,15 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         {
             leafQuery = leafQuery.Where(x => x.ProjectRoles.Any(r => r.ProjectRoleId == projectRoleId.Value) || x.ProjectRoles.Count == 0);
         }
+        else
+        {
+            leafQuery = leafQuery.Where(x => x.ProjectRoles.Count == 0);
+        }
         var leafNodes = await AsyncExecuter.ToListAsync(leafQuery);
         var dtos = ObjectMapper.Map<List<LaborCategory>, List<LaborCategoryDto>>(leafNodes);
         var allCategories = await _repository.GetListAsync();
         var categoryDict = allCategories.ToDictionary(x => x.Id);
-        
+
         foreach (var dto in dtos)
         {
             var hierarchyNames = new List<string>();
@@ -183,7 +187,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         var rolesToAdd = currentRoles.Where(r => !existingRoles.Contains(r)).ToList();
         foreach (var roleName in rolesToAdd)
         {
-            category.ProjectRoles.Add(new LaborCategoryProjectRole() { ProjectRoleId= roleName});
+            category.ProjectRoles.Add(new LaborCategoryProjectRole() { ProjectRoleId = roleName });
         }
 
         await _repository.UpdateAsync(category);

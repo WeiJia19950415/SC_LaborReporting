@@ -16,7 +16,6 @@ public class DepartmentDto : EntityDto<Guid>
     public Guid? ManagerId { get; set; } // 负责人ID
     public string ManagerName { get; set; } // 负责人姓名
 }
-
 public class CreateDepartmentInput
 {
     public Guid? ParentId { get; set; }
@@ -28,7 +27,6 @@ public class CreateDepartmentInput
     public DepartmentType DepartmentType { get; set; }
     public Guid? ManagerId { get; set; }
 }
-
 public class UpdateDepartmentInput
 {
     [Required]

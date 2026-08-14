@@ -25,6 +25,8 @@ namespace SC_LaborReporting.LaborReports
         public LaborClass LaborClass { get; set; }
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
+
+        public string LaborCategoryName { get; set; }
         public Guid? ProjectId { get; set; }
         public decimal Hours { get; set; }
         public decimal Hoursfinance { get; set; }
@@ -45,7 +47,7 @@ namespace SC_LaborReporting.LaborReports
         public Guid LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
 
-        public Guid ProductSeriesId {  get; set; }
+        public Guid ProductSeriesId { get; set; }
         public Guid? ProjectId { get; set; }
         public decimal Hours { get; set; }
         public string Jobresponsibilities { get; set; }
@@ -107,14 +109,14 @@ namespace SC_LaborReporting.LaborReports
 
         public LaborClass LaborClass { get; set; }
         public Guid? ProjectId { get; set; }
-        public Guid ProductSeriesId { get; set; }
+        public Guid? ProductSeriesId { get; set; }
 
         public string ProjectCode { get; set; }
         public string ProjectName { get; set; }
         public Guid? ProjectRoleId { get; set; }
         public string ProjectRoleName { get; set; }
 
-        public Guid LaborCategoryId { get; set; }
+        public Guid? LaborCategoryId { get; set; }
         public string LaborCategoryCode { get; set; }
         public decimal Hours { get; set; }
         public string Jobresponsibilities { get; set; }
