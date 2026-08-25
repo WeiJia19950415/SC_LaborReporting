@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SC_LaborReporting.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace SC_LaborReporting.Migrations
 {
     [DbContext(typeof(SC_LaborReportingDbContext))]
-    partial class SC_LaborReportingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260814055120_AddNewJobNumber2")]
+    partial class AddNewJobNumber2
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1526,8 +1529,8 @@ namespace SC_LaborReporting.Migrations
                         .HasColumnName("Name");
 
                     b.Property<string>("NewJobNumber")
-                        .HasMaxLength(32)
-                        .HasColumnType("nvarchar(32)");
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
 
                     b.Property<string>("NormalizedEmail")
                         .IsRequired()
@@ -1594,10 +1597,6 @@ namespace SC_LaborReporting.Migrations
                     b.HasIndex("JobNumber")
                         .IsUnique()
                         .HasFilter("[JobNumber] IS NOT NULL");
-
-                    b.HasIndex("NewJobNumber")
-                        .IsUnique()
-                        .HasFilter("[NewJobNumber] IS NOT NULL");
 
                     b.HasIndex("NormalizedEmail");
 

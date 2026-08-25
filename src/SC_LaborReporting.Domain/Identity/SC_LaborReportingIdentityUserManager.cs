@@ -62,6 +62,29 @@ public class SC_LaborReportingIdentityUserManager : IdentityUserManager
             dataFilter)
     {
     }
+    public override async Task<IdentityUser> FindSharedUserByNameAsync(string userName)
+    {
+        // 1. 先尝试使用 ABP 原生的方式去查找用户
+        var user = await base.FindSharedUserByNameAsync(userName);
+        if (user != null)
+        {
+            return user;
+        }
+
+        // 2. 找不到时，通过新工号查询
+        var genericRepository = UserRepository as IRepository<IdentityUser, Guid>;
+        if (genericRepository != null)
+        {
+            var queryable = await genericRepository.GetQueryableAsync();
+            user = await EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
+                queryable,
+                u => EF.Property<string>(u, "NewJobNumber") == userName
+            );
+        }
+
+        return user;
+    }
+
 
     public override async Task<IdentityUser> FindByNameAsync(string userName)
     {
@@ -77,7 +100,7 @@ public class SC_LaborReportingIdentityUserManager : IdentityUserManager
             var queryable = await genericRepository.GetQueryableAsync();
             user = await EntityFrameworkQueryableExtensions.FirstOrDefaultAsync(
                 queryable,
-                u => EF.Property<string>(u, "JobNumber") == userName
+                u => EF.Property<string>(u, "NewJobNumber") == userName
             );
         }
         

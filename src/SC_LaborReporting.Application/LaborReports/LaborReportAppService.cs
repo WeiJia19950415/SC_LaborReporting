@@ -27,13 +27,11 @@ namespace SC_LaborReporting.LaborReports
         private readonly IRepository<LaborReportDetail, Guid> _detailRepository;
         private readonly IRepository<LaborCategory, Guid> _laborCategoryRepository;
         private readonly IdentityUserManager _userManager;
-
         private readonly IRepository<OrganizationUnit, Guid> _organizationUnitRepository;
         private readonly IRepository<LaborReportApprovalStatus, Guid> _approvalStatusRepository;
         private readonly IRepository<LaborReportApprovalRecord, Guid> _approvalRecordRepository;
         private readonly IRepository<Project, Guid> _ProjectRepository;
         IRepository<ProductSeries.ProductSeries, Guid> _productSeriesRepository;
-
         public LaborReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
             IRepository<LaborReportDetail, Guid> detailRepository,
@@ -49,14 +47,12 @@ namespace SC_LaborReporting.LaborReports
             _detailRepository = detailRepository;
             _laborCategoryRepository = laborCategoryRepository;
             _userManager = userManager;
-
             _organizationUnitRepository = organizationUnitRepository;
             _approvalStatusRepository = approvalStatusRepository;
             _approvalRecordRepository = approvalRecordRepository;
             _ProjectRepository = ProjectRepository;
             _productSeriesRepository = productSeriesRepository;
         }
-
         // 查询接口
         public async Task<List<LaborReportItemDto>> GetListAsync(Guid? departmentId, Guid? reporterId, Guid? projectId, string categoryCode)
         {
@@ -79,43 +75,34 @@ namespace SC_LaborReporting.LaborReports
                 TotalOvertimeHours = d.LaborReport.TotalOvertimeHours,
                 LaborCategoryId = d.LaborCategoryId.Value,
                 LaborCategoryCode = d.LaborCategoryCode,
-
-
                 Hours = d.Hours,
                 Status = d.Status,
                 ProductSeriesId = d.ProductSeriesId.Value
             }).ToList();
             return result;
         }
-
         // 修改接口
         public async Task UpdateDetailAsync(Guid reportId, Guid detailId, UpdateLaborReportDetailDto input)
         {
             var report = await _reportRepository.GetAsync(reportId, includeDetails: true);
             var detail = report.Details.FirstOrDefault(x => x.Id == detailId)
                 ?? throw new EntityNotFoundException(typeof(LaborReportDetail), detailId);
-
             if (detail.Status != LaborReportStatus.Rejected && detail.Status != LaborReportStatus.Withdrawn)
             {
                 throw new UserFriendlyException("只能修改状态为“退回”或“撤回”的申报记录！");
             }
-
             var category = await _laborCategoryRepository.GetAsync(input.LaborCategoryId);
             if (category.LaborClass == LaborClass.Project && !input.ProjectId.HasValue)
                 throw new UserFriendlyException("工时类别为项目时，关联项目必填");
-
             detail.LaborCategoryId = input.LaborCategoryId;
             detail.LaborCategoryCode = input.LaborCategoryCode;
             detail.ProjectId = input.ProjectId;
             detail.Hours = input.Hours;
             detail.Status = LaborReportStatus.Pending;
-
             await _reportRepository.UpdateAsync(report);
-
             // 重新触发两级固定审批逻辑
             await GenerateApprovalFlowAsync(report.DepartmentId, detail.Id, detail.ProjectId);
         }
-
         // 删除接口
         public async Task DeleteDetailAsync(Guid detailId)
         {
@@ -131,11 +118,9 @@ namespace SC_LaborReporting.LaborReports
             {
                 throw new UserFriendlyException("只能删除状态为“退回”或“撤回”的申报记录！");
             }
-
             // 3. 直接从明细仓储中物理/逻辑删除
             await _detailRepository.DeleteAsync(detail);
         }
-
         // 审核接口
         public async Task ApproveAsync(ApproveInputDto input)
         {
@@ -143,13 +128,11 @@ namespace SC_LaborReporting.LaborReports
             var report = await query.FirstOrDefaultAsync(x => x.Id == input.ReportId);
             var detail = report.Details.FirstOrDefault(x => x.Id == input.DetailId)
                 ?? throw new EntityNotFoundException(typeof(LaborReportDetail), input.DetailId);
-
             var statusInfo = await _approvalStatusRepository.FirstOrDefaultAsync(x => x.LaborReportDetailId == input.DetailId);
             if (statusInfo == null || statusInfo.Status == ApprovalStatus.Completed)
             {
                 throw new UserFriendlyException("当前申报明细不在审批状态中。");
             }
-
             var currentRecord = await _approvalRecordRepository.FirstOrDefaultAsync(x =>
                 x.LaborReportDetailId == input.DetailId &&
                 x.Level == statusInfo.CurrentLevel);
@@ -158,18 +141,15 @@ namespace SC_LaborReporting.LaborReports
             {
                 throw new UserFriendlyException("未找到对应的审批记录节点。");
             }
-
             if (currentRecord.ApproverId != CurrentUser.Id)
             {
                 throw new UserFriendlyException("您没有当前节点的审批权限。");
             }
-
             // 更新审批记录
             currentRecord.Status = input.IsApproved ? ApprovalRecordStatus.Approved : ApprovalRecordStatus.Rejected;
             currentRecord.Comment = input.Comment;
             currentRecord.ApprovalTime = Clock.Now;
             await _approvalRecordRepository.UpdateAsync(currentRecord);
-
             // 更新审批状态
             if (!input.IsApproved)
             {
@@ -207,30 +187,24 @@ namespace SC_LaborReporting.LaborReports
                     detail.Status = LaborReportStatus.Approved;
                     report.RecalculateHours();
                 }
-
                 await _approvalStatusRepository.UpdateAsync(statusInfo);
                 await _reportRepository.UpdateAsync(report);
                 CalculateAndAssignHoursFinance(report.Details.ToList());
             }
         }
-
         // 撤回接口
         public async Task WithdrawAsync(Guid detailId)
         {
             // 1. 直接通过明细仓储获取数据
             var detail = await _detailRepository.GetAsync(detailId);
-
             if (detail == null)
             {
                 throw new EntityNotFoundException(typeof(LaborReportDetail), detailId);
-            }
-
-            // 2. 基础状态校验
+            }            // 2. 基础状态校验
             if (detail.Status != LaborReportStatus.Pending)
             {
                 throw new UserFriendlyException("仅能撤回处于“审核中”的记录！");
             }
-
             // 3. 核心安全校验：检查是否已经有任何审批人处理过
             var records = await _approvalRecordRepository.GetListAsync(x => x.LaborReportDetailId == detailId);
             if (records.Any(x => x.Status != ApprovalRecordStatus.Pending))
@@ -240,12 +214,10 @@ namespace SC_LaborReporting.LaborReports
                     throw new UserFriendlyException("该明细已被审批（或部分审批），无法撤回！");
                 }
             }
-
             // 4. 状态变更为撤回并保存
             detail.Status = LaborReportStatus.Withdrawn;
             await _detailRepository.UpdateAsync(detail);
         }
-
         // 退回接口
         [RemoteService(IsEnabled = false)]
         public async Task RejectAsync(Guid reportId, Guid detailId)
@@ -260,7 +232,6 @@ namespace SC_LaborReporting.LaborReports
             detail.Status = LaborReportStatus.Rejected;
             await _reportRepository.UpdateAsync(report);
         }
-
         // 日历查询
         public async Task<List<LaborReportDailyStatusDto>> GetCalendarStatusAsync(DateTime startDate, DateTime endDate)
         {
@@ -282,7 +253,6 @@ namespace SC_LaborReporting.LaborReports
                 }).ToList();
             return result;
         }
-
         // 提报工时
         public async Task SaveDailyReportAsync(SaveDailyLaborReportDto input)
         {
@@ -340,12 +310,10 @@ namespace SC_LaborReporting.LaborReports
                         projectRoleName: dto.ProjectRoleName ?? "-",
                         productSeriesId: dto.ProductSeriesId
                     );
-
                     report.Details.Add(newDetail);
                 }
             }
             await _reportRepository.UpdateAsync(report);
-
             // 触发自动创建审批记录流
             foreach (var detail in report.Details)
             {
@@ -363,7 +331,6 @@ namespace SC_LaborReporting.LaborReports
                 await CurrentUnitOfWork.SaveChangesAsync();
             }
         }
-
         [HttpPost]
         public async Task<List<LaborReportItemDto>> GetDetailsByIdsAsync(List<Guid> detailIds)
         {
@@ -394,10 +361,8 @@ namespace SC_LaborReporting.LaborReports
                 ProjectRoleId = d.ProjectRoleId,
                 ProjectRoleName = d.ProjectRoleName
             }).ToList();
-
             return result;
         }
-
         /// <summary>
         /// 生成审批流：部门负责人 -> 项目负责人
         /// </summary>
@@ -447,9 +412,8 @@ namespace SC_LaborReporting.LaborReports
             var level2Record = new LaborReportApprovalRecord(GuidGenerator.Create(), detailId, 2, level2ApproverId);
 
             await _approvalRecordRepository.InsertAsync(level1Record);
-            await _approvalRecordRepository.InsertAsync(levx    el2Record);
+            await _approvalRecordRepository.InsertAsync(level2Record);
         }
-
         public async Task<List<LaborReportItemDto>> GetPendingApprovalsAsync(Guid? reporterId, Guid? departmentId, Guid? projectId)
         {
             var currentUserId = CurrentUser.Id;
@@ -492,12 +456,22 @@ namespace SC_LaborReporting.LaborReports
                 .Distinct()
                 .ToList();
 
+            var productSeriesIds = details
+                .Where(d => d.ProductSeriesId.HasValue)
+                .Select(d => d.ProductSeriesId.Value)
+                .Distinct()
+                .ToList();
+
             // 4. 批量查询 Category 并转为字典 (Id -> Name)
             var categoryQuery = await _laborCategoryRepository.GetQueryableAsync();
             var categoryDict = await categoryQuery
                 .Where(c => categoryIds.Contains(c.Id))
                 .ToDictionaryAsync(c => c.Id, c => c.Name);
 
+            var productSeriesQuery = await _productSeriesRepository.GetQueryableAsync();
+            var productSeriesDic = await productSeriesQuery
+                .Where(c => productSeriesIds.Contains(c.Id))
+                .ToDictionaryAsync(c => c.Id, c => c.Name);
             // 5. 在内存中进行同步映射
             return details.Select(d => new LaborReportItemDto
             {
@@ -511,9 +485,12 @@ namespace SC_LaborReporting.LaborReports
                 LaborCategoryId = d.LaborCategoryId.Value,
                 LaborCategoryCode = d.LaborCategoryCode,
                 ProjectId = d.ProjectId,
-
-                LaborCategoryName = d.LaborCategoryId.HasValue && categoryDict.TryGetValue(d.LaborCategoryId.Value, out var name)
+                ProductSeriesId = d.ProductSeriesId.GetValueOrDefault(),
+                ProductSeriesName = d.ProductSeriesId.HasValue && productSeriesDic.TryGetValue(d.ProductSeriesId.Value, out var name)
                                     ? name
+                                    : null,
+                LaborCategoryName = d.LaborCategoryId.HasValue && categoryDict.TryGetValue(d.LaborCategoryId.Value, out var name2)
+                                    ? name2
                                     : null,
 
                 Hours = d.Hours,
@@ -567,7 +544,6 @@ namespace SC_LaborReporting.LaborReports
                 _ => status.ToString() // 兜底选项，防止未来增加枚举但忘了改这里
             };
         }
-
         /// <summary>
         /// 统筹计算并分配当天的财务核算工时 (Hoursfinance)
         /// </summary>
@@ -620,19 +596,15 @@ namespace SC_LaborReporting.LaborReports
                 detail.SetHoursfinance(finalAllocations[detail]);
             }
         }
-
-
         public async Task<PagedResultDto<ApprovalHistoryDto>> GetApprovalHistoryAsync(GetApprovalHistoryInput input)
         {
             var currentUserId = CurrentUser.Id;
             if (!currentUserId.HasValue)
                 throw new UserFriendlyException("未检测到有效登录用户。");
-
             // 1. 获取基础 IQueryable (注意 ABP 中仓储需要 await GetQueryableAsync)
             var recordQuery = await _approvalRecordRepository.GetQueryableAsync();
             var detailQuery = await _detailRepository.GetQueryableAsync();
             var reportQuery = await _reportRepository.GetQueryableAsync();
-
             // 2. 联表查询：关联审批记录、明细和主表
             var query = from record in recordQuery
                         join detail in detailQuery on record.LaborReportDetailId equals detail.Id
@@ -641,29 +613,23 @@ namespace SC_LaborReporting.LaborReports
                            // 核心过滤：剔除“待审批(Pending)”，只查我已经处理过(通过/驳回)的记录
                            && record.Status != ApprovalRecordStatus.Pending
                         select new { record, detail, report };
-
             // 3. 动态条件过滤 (填报发起人)
             if (input.ReporterId.HasValue)
             {
                 query = query.Where(q => q.report.ReporterId == input.ReporterId.Value);
             }
-
             // 4. 动态条件过滤 (发起部门)
             if (input.DepartmentId.HasValue)
             {
                 query = query.Where(q => q.report.DepartmentId == input.DepartmentId.Value);
             }
-
             // 5. 统计总数 (用于前端分页展示 Total)
             var totalCount = await query.CountAsync();
-
             // 6. 分页与排序 (按审批时间倒序)
             var pagedQuery = query.OrderByDescending(q => q.record.ApprovalTime ?? q.record.CreationTime)
                                   .Skip(input.SkipCount)
                                   .Take(input.MaxResultCount);
-
             var items = await pagedQuery.ToListAsync();
-
             // 7. 映射组装给前端的 DTO
             var dtos = items.Select(q => new ApprovalHistoryDto
             {
@@ -675,16 +641,12 @@ namespace SC_LaborReporting.LaborReports
                 LaborCategoryCode = q.detail.LaborCategoryCode,
                 Hours = (decimal)q.detail.Hours,
                 Jobresponsibilities = q.detail.Jobresponsibilities,
-
                 // 这里映射的是“我”在这个节点的审批状态 (如果是枚举类型，转为 int 给前端匹配 tag 颜色)
                 Status = (int)q.record.Status,
-
                 ApprovalTime = q.record.ApprovalTime ?? q.record.CreationTime,
                 ApprovalComment = q.record.Comment ?? "无"
             }).ToList();
             return new PagedResultDto<ApprovalHistoryDto>(totalCount, dtos);
         }
-
-
     }
 }

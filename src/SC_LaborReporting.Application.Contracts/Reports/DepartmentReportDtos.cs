@@ -10,6 +10,8 @@ namespace SC_LaborReporting.Reports
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }
         public bool IncludeUnapproved { get; set; }
+
+        public Guid? departmentId { get; set; }
         public Guid? ProjectId { get; set; }
         public bool FilterByProject { get; set; }
         public Guid? LaborCategoryId { get; set; }
@@ -28,6 +30,7 @@ namespace SC_LaborReporting.Reports
         public string ProjectName { get; set; }
         public string ProjectCode { get; set; }
         public string ProjectRoleName { get; set; }
+        public string SubTime { get; set; }
         public string ReporterName { get; set; }
         public string DepartmentFullName { get; set; }
         public string LaborCategoryFullName { get; set; }

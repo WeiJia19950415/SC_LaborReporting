@@ -27,6 +27,7 @@ namespace SC_LaborReporting.Reports
         private readonly IAuthorizationService _authorizationService;
         private readonly IRepository<LaborReportDetail, Guid> _detailRepository;
         private readonly IRepository<Project, Guid> _ProjectRepository;
+
         public ReportAppService(
             IRepository<LaborReport, Guid> reportRepository,
             IRepository<LaborCategory, Guid> laborCategoryRepository,
@@ -113,6 +114,38 @@ namespace SC_LaborReporting.Reports
 
             return dto;
         }
+
+        // 请确保您的 Service 中注入了部门的仓储，例如：
+        // private readonly IRepository<Department, Guid> _departmentRepository;
+
+        private async Task<List<Guid>> GetDepartmentAndAllChildrenIdsAsync(Guid rootDepartmentId)
+        {
+            var allDepartments = await _ouRepository.GetListAsync();
+            var resultIds = new List<Guid> { rootDepartmentId };
+            var queue = new Queue<Guid>();
+            queue.Enqueue(rootDepartmentId);
+
+            while (queue.Any())
+            {
+                var currentId = queue.Dequeue();
+                // 假设您的部门实体中表示父级ID的字段叫 ParentId
+                var childrenIds = allDepartments
+                    .Where(d => d.ParentId == currentId)
+                    .Select(d => d.Id)
+                    .ToList();
+
+                foreach (var childId in childrenIds)
+                {
+                    if (!resultIds.Contains(childId))
+                    {
+                        resultIds.Add(childId);
+                        queue.Enqueue(childId);
+                    }
+                }
+            }
+
+            return resultIds;
+        }
         private async Task<List<LaborReportDetail>> GetFilteredDetailsAsync(DepartmentReportQueryDto input)
         {
             var userId = CurrentUser.Id;
@@ -121,16 +154,11 @@ namespace SC_LaborReporting.Reports
             // 1. 获取主表查询对象并应用基础的时间条件
             var query = await _reportRepository.WithDetailsAsync(x => x.Details);
             var queryable = query.Where(x => x.ReportDate >= input.StartDate && x.ReportDate <= input.EndDate);
-
-            // 2. 【新增】如果前端查询面板指定了某个特定部门，优先按这个部门查！
-            // （假设你的 DepartmentReportQueryDto 中有 DepartmentId 字段，如果有别的名字请对应修改）
-            // 注意：利用反射或者看你之前的 DTO，如果有这个字段就必须加上
-            /* 
-            if (input.DepartmentId.HasValue)
+            if (input.departmentId.HasValue)
             {
-                queryable = queryable.Where(x => x.DepartmentId == input.DepartmentId.Value);
+                var targetDepartmentIds = await GetDepartmentAndAllChildrenIdsAsync(input.departmentId.Value);
+                queryable = queryable.Where(x => targetDepartmentIds.Contains(x.DepartmentId));
             }
-            */
 
             // 3. 数据权限隔离控制（划定最大可见边界）
             var hasAllDataPermission = await _authorizationService.IsGrantedAsync(SC_LaborReportingPermissions.Reports.ReportManagement_BusinessDetailsALL);
@@ -245,8 +273,6 @@ namespace SC_LaborReporting.Reports
             var users = await _userRepository.GetListAsync(x => reporterIds.Contains(x.Id));
             var userMap = users.ToDictionary(x => x.Id, x => x.Name ?? x.UserName);
 
-            // ================= 【升级：组装包含上级部门的完整名称】 =================
-            // 部门表数据量通常不大，一次性拉取全表进内存进行 ParentId 追溯能极大减少数据库查询次数
             var allOus = await _ouRepository.GetListAsync();
             var ouFullNames = new Dictionary<Guid, string>();
 
@@ -256,7 +282,6 @@ namespace SC_LaborReporting.Reports
             {
                 var ouNamePieces = new List<string>();
                 var currentOu = allOus.FirstOrDefault(x => x.Id == targetOuId);
-
                 // 循环向上追溯上级部门，直到顶级部门
                 while (currentOu != null)
                 {
@@ -265,7 +290,6 @@ namespace SC_LaborReporting.Reports
                         ? allOus.FirstOrDefault(x => x.Id == currentOu.ParentId.Value)
                         : null;
                 }
-
                 // 将层级名称使用 " - " 拼接，例如："总公司 - 研发中心 - 前端开发组"
                 ouFullNames[targetOuId] = string.Join(" - ", ouNamePieces);
             }
@@ -296,6 +320,7 @@ namespace SC_LaborReporting.Reports
                     LaborCategoryFullName = string.Join(" - ", nameList),
                     Jobresponsibilities = d.Jobresponsibilities,
                     Hours = d.Hours,
+                    SubTime = d.LaborReport.ReportDate.ToString("yyyy-MM-dd"),
                     Status = (int)d.Status
                 });
             }
