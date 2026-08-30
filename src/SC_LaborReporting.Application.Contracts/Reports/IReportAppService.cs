@@ -16,5 +16,7 @@ namespace SC_LaborReporting.Reports
 
         [HttpGet]
         Task<ExportFileDto> ExportDepartmentTableAsync(DepartmentReportQueryDto input);
+
+        Task<List<UnsubmittedUserDto>> GetUnsubmittedUsersAsync(UnsubmittedReportQueryDto input);
     }
 }

@@ -66,6 +66,9 @@ public static class SC_LaborReportingPermissions
 
         public const string UserHoursReport = ReportManagement + ".UserHoursReport";
         public const string UserFinanceReport = ReportManagement + ".UserFinanceReport";
+
+
+        public const string UnsubmittedReport = GroupName + ".UnsubmittedReport";
     }
 
 
@@ -125,5 +128,7 @@ public static class SC_LaborReportingPermissions
     {
         public const string Default = GroupName + ".ProductSeries";
     }
+
+
 
 }

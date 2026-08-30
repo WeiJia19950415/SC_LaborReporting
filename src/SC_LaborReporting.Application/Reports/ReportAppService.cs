@@ -518,5 +518,52 @@ namespace SC_LaborReporting.Reports
 
             return result;
         }
+
+        // ReportAppService.cs
+        [Authorize(SC_LaborReportingPermissions.Reports.UserFinanceReport)]
+        public async Task<List<UnsubmittedUserDto>> GetUnsubmittedUsersAsync(UnsubmittedReportQueryDto input)
+        {
+            // 1. 构建用户基础查询
+            var userQuery = await _userRepository.GetQueryableAsync();
+
+            if (input.DepartmentId.HasValue)
+            {
+                // 获取当前指定的部门
+                var targetOu = await _ouRepository.GetAsync(input.DepartmentId.Value);
+
+                // 利用 Code 字段的 StartsWith 特性获取本部门及所有下级部门的 ID 集合
+                var ouQuery = await _ouRepository.GetQueryableAsync();
+                var ouIds = await ouQuery
+                    .Where(ou => ou.Code.StartsWith(targetOu.Code))
+                    .Select(ou => ou.Id)
+                    .ToListAsync();
+
+                // 核心修复：u.OrganizationUnits 是实体集合，必须用 .Any() 去匹配其中的 OrganizationUnitId
+                userQuery = userQuery.Where(u => u.OrganizationUnits.Any(x => ouIds.Contains(x.OrganizationUnitId)));
+            }
+
+            // 执行查询获取目标范围内的所有人员
+            var targetUsers = await userQuery.ToListAsync();
+
+            // 2. 获取指定日期已提交工时的记录
+            var submittedReports = await _reportRepository.GetListAsync(
+                r => r.ReportDate.Date == input.QueryDate.Date);
+
+            // 提取已经提交工时的用户 CreatorId 集合
+            var submittedUserIds = submittedReports
+                .Where(r => r.CreatorId.HasValue)
+                .Select(r => r.CreatorId.Value)
+                .ToHashSet();
+
+            // 3. 过滤掉已经提交的用户，返回未提交名单
+            return targetUsers
+                .Where(u => !submittedUserIds.Contains(u.Id))
+                .Select(u => new UnsubmittedUserDto
+                {
+                    UserId = u.Id,
+                    UserName = u.UserName,
+                    DepartmentName = u.Name
+                }).ToList();
+        }
     }
 }

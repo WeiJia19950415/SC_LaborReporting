@@ -53,6 +53,7 @@ public class SC_LaborReportingPermissionDefinitionProvider : PermissionDefinitio
 
         Report.AddChild(SC_LaborReportingPermissions.Reports.UserHoursReport, L("Permission:ReportManagement.UserHoursReport"));
         Report.AddChild(SC_LaborReportingPermissions.Reports.UserFinanceReport, L("Permission:ReportManagement.UserFinanceReport"));
+        Report.AddChild(SC_LaborReportingPermissions.Reports.UnsubmittedReport, L("Permission:ReportManagement.UnsubmittedReport"));
         //产品系列
         var productSeriesGroup = myGroup.AddPermission(SC_LaborReportingPermissions.ProductSeries.Default, L("Permission:ProductSeries"));
     }

@@ -53,6 +53,7 @@
     "Permission:ReportManagement": "报表管理",
     "Permission:ReportManagement.BusinessDetails": "明细报表-业务（默认查询本部门）",
     "Permission:ReportManagement.BusinessDetailsALL": "明细报表-业务（所有数据权限）",
+    "Permission:ReportManagement.UnsubmittedReport": "未提交工时报表",
     "Permission:LaborCategoriesManagement": "工时分类管理",
     "Permission:ProjectsManagement": "项目管理",
     "Permission:ProjectRolesManagement": "项目角色管理",

@@ -5,6 +5,7 @@ using SC_LaborReporting.LaborCategories;
 using SC_LaborReporting.LaborReports;
 using SC_LaborReporting.ProjectRoles;
 using SC_LaborReporting.Projects;
+using SC_LaborReporting.AttendanceDatas;
 using Volo.Abp.AuditLogging.EntityFrameworkCore;
 using Volo.Abp.BackgroundJobs.EntityFrameworkCore;
 using Volo.Abp.BlobStoring.Database.EntityFrameworkCore;
@@ -61,6 +62,8 @@ public class SC_LaborReportingDbContext :
     // Tenant Management
     public DbSet<Tenant> Tenants { get; set; }
     public DbSet<TenantConnectionString> TenantConnectionStrings { get; set; }
+
+    public DbSet<AttendanceData> AttendanceData { get; set; }
     #endregion
 
     public SC_LaborReportingDbContext(DbContextOptions<SC_LaborReportingDbContext> options)
