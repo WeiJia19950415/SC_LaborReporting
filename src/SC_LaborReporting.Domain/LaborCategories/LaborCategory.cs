@@ -14,6 +14,11 @@ public class LaborCategory : FullAuditedAggregateRoot<Guid>
     public string Code { get; set; }
     public string Remark { get; set; }
 
+    /// <summary>
+    /// 映射关系
+    /// </summary>
+    public SC_LaborReporting.enums.ActivityMappingType MappingType { get; set; }
+
     // ⭐ 新增：一对多关联关系集合
     public virtual ICollection<LaborCategoryDepartment> Departments { get; protected set; }
     public virtual ICollection<LaborCategoryProjectRole> ProjectRoles { get; protected set; }
@@ -23,4 +28,6 @@ public class LaborCategory : FullAuditedAggregateRoot<Guid>
         Departments = new List<LaborCategoryDepartment>();
         ProjectRoles = new List<LaborCategoryProjectRole>();
     }
+
+
 }

@@ -13,5 +13,6 @@ namespace SC_LaborReporting.LaborCategories
         public string Departments { get; set; }
         public string ProjectRoles { get; set; }
         public string Remark { get; set; }
+        public string MappingType { get; set; }
     }
 }

@@ -8,11 +8,15 @@ using System.IO;
 using System.Linq;
 using System.Linq.Dynamic.Core;
 using System.Threading.Tasks;
+using Volo.Abp;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Authorization.Permissions;
+using Volo.Abp.Content;
 using Volo.Abp.Data;
+using Volo.Abp.Domain.Repositories;
 using Volo.Abp.Identity;
 using Volo.Abp.Uow;
+using Microsoft.EntityFrameworkCore;
 
 namespace SC_LaborReporting.Users;
 
@@ -27,6 +31,8 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
     private readonly IOrganizationUnitRepository _organizationUnitRepository;
     private readonly IUnitOfWorkManager _unitOfWorkManager;
 
+    private readonly IRepository<SC_LaborReporting.AttendanceDatas.AttendanceData, Guid> _attendanceRepository;
+
     public UserManagementAppService(
         IdentityUserManager userManager,
         IIdentityUserRepository userRepository,
@@ -34,7 +40,8 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
         IPermissionChecker permissionChecker,
         IIdentityRoleRepository roleRepository,
             IOrganizationUnitRepository organizationUnitRepository,
-            IUnitOfWorkManager unitOfWorkManager)
+            IUnitOfWorkManager unitOfWorkManager,
+            IRepository<SC_LaborReporting.AttendanceDatas.AttendanceData, Guid> attendanceRepository)
     {
         _userManager = userManager;
         _userRepository = userRepository;
@@ -43,6 +50,7 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
         _roleRepository = roleRepository;
         _organizationUnitRepository = organizationUnitRepository;
         _unitOfWorkManager = unitOfWorkManager;
+        _attendanceRepository = attendanceRepository;
     }
 
     public async Task<PagedResultDto<UserDetailDto>> GetListAsync(UserListQueryDto input)
@@ -190,7 +198,6 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
 
         // 生成重置Token
         var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-
         // 强制重置为默认密码，ABP会自动检查密码复杂度 (SCjg.123000 满足默认规则)
         (await _userManager.ResetPasswordAsync(user, token, "SCjg.123000")).CheckErrors();
         user.SetProperty("MustChangePassword", true);
@@ -299,5 +306,50 @@ public class UserManagementAppService : SC_LaborReportingAppService, IUserManage
             }
         }
        
+    }
+
+
+    public async Task ImportAttendanceAsync(IRemoteStreamContent file)
+    {
+        // [需求2] 验证导入的格式是 Excel
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension != ".xlsx" && extension != ".xls")
+        {
+            throw new UserFriendlyException("导入失败：仅支持 Excel (.xlsx, .xls) 文件格式。");
+        }
+
+        using var stream = file.GetStream();
+
+        // 1. 读取 Excel 所有行
+        var rows = stream.Query<AttendanceDataImportDto>().ToList();
+        if (!rows.Any())
+        {
+            throw new UserFriendlyException("导入失败：Excel文件中没有数据。");
+        }
+
+        // 2. 将读取到的所有数据直接映射到领域对象（去除了数据库校验和跳过逻辑）
+        var entities = rows.Select(row => new SC_LaborReporting.AttendanceDatas.AttendanceData(
+            GuidGenerator.Create(),
+            row.Name,
+            row.AttendanceTeam,
+            row.DepartmentName,
+            row.EmployeeID,
+            "20" + row.AttendanceDate,
+            // 加上 ?. 防止 Excel 某行为空引发空引用异常
+            "20" + (row.AttendanceDate?.Split(' ')[0] ?? string.Empty),
+            row.ClockIntime,
+            row.CheckInResults,
+            row.Offdutytime,
+            row.OffdutytimeResults
+        )).ToList();
+
+        // 3. 分批插入数据库（数据量大时分批提交，防止内存溢出或事务超时）
+        const int insertBatchSize = 5000;
+        for (int i = 0; i < entities.Count; i += insertBatchSize)
+        {
+            var batch = entities.Skip(i).Take(insertBatchSize).ToList();
+            // autoSave: false 可以减少频繁提交带来的性能损耗，交由 Unit of Work 统一提交
+            await _attendanceRepository.InsertManyAsync(batch, autoSave: false);
+        }
     }
 }

@@ -153,6 +153,8 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
         category.LaborClass = input.LaborClass;
         category.Name = input.Name;
         category.Remark = input.Remark;
+        category. MappingType = (SC_LaborReporting.enums.ActivityMappingType)Enum.Parse(typeof(SC_LaborReporting.enums.ActivityMappingType), input.MappingType);
+
 
         if (category.ParentId != input.ParentId)
         {
@@ -276,24 +278,24 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             if (!string.IsNullOrWhiteSpace(lastL1))
             {
                 bool isLeaf = string.IsNullOrWhiteSpace(lastL2);
-                var l1Node = await CreateOrUpdateNodeAsync(lastL1.Trim(), null, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                var l1Node = await CreateOrUpdateNodeAsync(lastL1.Trim(), null, t, c, row.Remark, deptIds, roleIds, isLeaf, row.MappingType);
                 parentId = l1Node.Id;
 
                 if (!isLeaf && !string.IsNullOrWhiteSpace(lastL2))
                 {
                     isLeaf = string.IsNullOrWhiteSpace(lastL3);
-                    var l2Node = await CreateOrUpdateNodeAsync(lastL2.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                    var l2Node = await CreateOrUpdateNodeAsync(lastL2.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf, row.MappingType);
                     parentId = l2Node.Id;
 
                     if (!isLeaf && !string.IsNullOrWhiteSpace(lastL3))
                     {
                         isLeaf = string.IsNullOrWhiteSpace(lastL4);
-                        var l3Node = await CreateOrUpdateNodeAsync(lastL3.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf);
+                        var l3Node = await CreateOrUpdateNodeAsync(lastL3.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, isLeaf, row.MappingType);
                         parentId = l3Node.Id;
 
                         if (!isLeaf && !string.IsNullOrWhiteSpace(lastL4))
                         {
-                            var l4Node = await CreateOrUpdateNodeAsync(lastL4.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, true);
+                            var l4Node = await CreateOrUpdateNodeAsync(lastL4.Trim(), parentId, t, c, row.Remark, deptIds, roleIds, true, row.MappingType);
                             parentId = l4Node.Id;
                         }
                     }
@@ -304,12 +306,13 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
 
 
     private async Task<LaborCategory> CreateOrUpdateNodeAsync(
-        string name, Guid? parentId,
-        LaborType type, LaborClass cls,
-        string remark,
-        List<Guid> deptIds,
-        List<Guid> roleIds,
-        bool isLeaf)
+     string name, Guid? parentId,
+     LaborType type, LaborClass cls,
+     string remark,
+     List<Guid> deptIds,
+     List<Guid> roleIds,
+     bool isLeaf,
+     string mappingType)
     {
         // 包含导航属性的查询，用于更新部门和角色关系
         var query = await _repository.WithDetailsAsync(x => x.Departments, x => x.ProjectRoles);
@@ -321,6 +324,7 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
             bool isModified = false;
             if (node.LaborType != type) { node.LaborType = type; isModified = true; }
             if (node.LaborClass != cls) { node.LaborClass = cls; isModified = true; }
+
             if (isLeaf)
             {
                 var safeRemark = remark ?? "";
@@ -329,6 +333,22 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
                     node.Remark = safeRemark;
                     isModified = true;
                 }
+
+                // ================== 【核心修复点1：修改已存在的记录时，更新 MappingType】 ==================
+                if (!string.IsNullOrWhiteSpace(mappingType))
+                {
+                    // 使用更安全的 TryParse，忽略大小写，防止非法字符导致整个导入崩溃
+                    if (Enum.TryParse<SC_LaborReporting.enums.ActivityMappingType>(mappingType, true, out var parsedMapping))
+                    {
+                        if (node.MappingType != parsedMapping)
+                        {
+                            node.MappingType = parsedMapping;
+                            isModified = true;
+                        }
+                    }
+                }
+                // =========================================================================================
+
                 var existingDeptIds = node.Departments.Select(d => d.DepartmentId).ToList();
                 var deptToAdd = deptIds.Except(existingDeptIds).ToList();
                 var deptToRemove = existingDeptIds.Except(deptIds).ToList();
@@ -399,6 +419,14 @@ public class LaborCategoryAppService : SC_LaborReportingAppService, ILaborCatego
                         createdNode.ProjectRoles.Add(new LaborCategoryProjectRole { LaborCategoryId = createdNode.Id, ProjectRoleId = rId });
                     }
                 }
+                if (!string.IsNullOrWhiteSpace(mappingType))
+                {
+                    if (Enum.TryParse<SC_LaborReporting.enums.ActivityMappingType>(mappingType, true, out var parsedMapping))
+                    {
+                        createdNode.MappingType = parsedMapping;
+                    }
+                }
+
                 await _repository.UpdateAsync(createdNode);
                 await CurrentUnitOfWork.SaveChangesAsync();
             }

@@ -100,6 +100,7 @@ namespace SC_LaborReporting.LaborReports
         public Guid? ReporterId { get; set; }
         public Guid? DepartmentId { get; set; }
         public DateTime ReportDate { get; set; }
+        public bool IsHistory { get; set; } = false;
         public List<LaborReportDetailItemDto> Details { get; set; } = new List<LaborReportDetailItemDto>();
     }
     public class LaborReportDetailItemDto

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Content;
 
 namespace SC_LaborReporting.Users;
 
@@ -16,4 +17,6 @@ public interface IUserManagementAppService : IApplicationService
     Task<List<string>> GetMyPermissionsAsync();
     Task ResetPasswordAsync(Guid id);
     Task<byte[]> ImportUsersAsync(byte[] fileBytes);
+
+    Task ImportAttendanceAsync(IRemoteStreamContent file);
 }

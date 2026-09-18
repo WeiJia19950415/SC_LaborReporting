@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SC_LaborReporting.EntityFrameworkCore;
 using Volo.Abp.EntityFrameworkCore;
@@ -12,9 +13,11 @@ using Volo.Abp.EntityFrameworkCore;
 namespace SC_LaborReporting.Migrations
 {
     [DbContext(typeof(SC_LaborReportingDbContext))]
-    partial class SC_LaborReportingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260901013208_Add_MappingType_To_LaborCategory")]
+    partial class Add_MappingType_To_LaborCategory
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -41,6 +44,10 @@ namespace SC_LaborReporting.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<string>("CheckInAddress")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("CheckInResults")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -58,14 +65,6 @@ namespace SC_LaborReporting.Migrations
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("Name")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Offdutytime")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("OffdutytimeResults")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -600,9 +599,6 @@ namespace SC_LaborReporting.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false)
                         .HasColumnName("IsDeleted");
-
-                    b.Property<bool>("IsOld")
-                        .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastModificationTime")
                         .HasColumnType("datetime2")

@@ -31,4 +31,35 @@ namespace SC_LaborReporting.enums
         Approved = 1,   // 审批通过
         Rejected = 2    // 审批不通过
     }
+
+    /// <summary>
+    /// 任务分类映射关系
+    /// </summary>
+    public enum ActivityMappingType
+    {
+        /// <summary>
+        /// 管理活动
+        /// </summary>
+        Management = 1,
+
+        /// <summary>
+        /// 研发活动
+        /// </summary>
+        RnD = 2,
+
+        /// <summary>
+        /// 按照人员部门归属
+        /// </summary>
+        ByDepartment = 3,
+
+        /// <summary>
+        /// 生产活动 (注: 你题目中写的是'生成活动'，通常业务上为'生产活动')
+        /// </summary>
+        Production = 4,
+
+        /// <summary>
+        /// 销售活动
+        /// </summary>
+        Sales = 5
+    }
 }

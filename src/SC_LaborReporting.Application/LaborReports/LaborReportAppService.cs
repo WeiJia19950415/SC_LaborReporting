@@ -114,10 +114,10 @@ namespace SC_LaborReporting.LaborReports
             }
 
             // 2. 状态校验：只能删除退回或撤回状态的记录
-            if (detail.Status != LaborReportStatus.Rejected && detail.Status != LaborReportStatus.Withdrawn)
-            {
-                throw new UserFriendlyException("只能删除状态为“退回”或“撤回”的申报记录！");
-            }
+            //if (detail.Status != LaborReportStatus.Rejected && detail.Status != LaborReportStatus.Withdrawn)
+            //{
+            //    throw new UserFriendlyException("只能删除状态为“退回”或“撤回”的申报记录！");
+            //}
             // 3. 直接从明细仓储中物理/逻辑删除
             await _detailRepository.DeleteAsync(detail);
         }
@@ -256,6 +256,16 @@ namespace SC_LaborReporting.LaborReports
         // 提报工时
         public async Task SaveDailyReportAsync(SaveDailyLaborReportDto input)
         {
+            if (input.IsHistory)
+            {
+                var minDate = new DateTime(2025, 1, 1);
+                var maxDate = new DateTime(2026, 7, 31);
+                if (input.ReportDate.Date < minDate.Date || input.ReportDate.Date > maxDate.Date)
+                {
+                    throw new UserFriendlyException("历史工时提交失败：提交日期仅限于 2025年1月1日 至 2026年7月31日之间！");
+                }
+            }
+
             var currentUserId = CurrentUser.GetId();
             var user = await _userManager.GetByIdAsync(currentUserId);
             var ous = await _userManager.GetOrganizationUnitsAsync(user);
@@ -265,14 +275,19 @@ namespace SC_LaborReporting.LaborReports
                 throw new UserFriendlyException("当前用户未分配部门，无法提报工时，请联系管理员！");
             }
             input.DepartmentId = departmentId;
+
             var query = await _reportRepository.WithDetailsAsync(x => x.Details);
             var report = query.FirstOrDefault(x => x.ReporterId == currentUserId && x.ReportDate.Date == input.ReportDate.Date);
+
             if (report == null)
             {
                 if (!input.DepartmentId.HasValue) throw new UserFriendlyException("缺少部门信息");
                 report = new LaborReport(GuidGenerator.Create(), currentUserId, input.DepartmentId.Value, input.ReportDate);
                 await _reportRepository.InsertAsync(report, autoSave: true);
             }
+            // (如果你的“已通过”枚举不叫 Approved，请修改这里)
+            var targetStatus = input.IsHistory ? LaborReportStatus.Approved : LaborReportStatus.Pending;
+
             foreach (var dto in input.Details)
             {
                 if (dto.Id.HasValue && dto.Id.Value != Guid.Empty)
@@ -286,7 +301,7 @@ namespace SC_LaborReporting.LaborReports
                         existingDetail.ProjectName = dto.ProjectName ?? "其它工时";
                         existingDetail.ProjectRoleId = dto.ProjectRoleId;
                         existingDetail.ProjectRoleName = dto.ProjectRoleName ?? "-";
-                        existingDetail.Status = LaborReportStatus.Pending;
+                        existingDetail.Status = targetStatus;
                         existingDetail.LaborCategoryId = dto.LaborCategoryId.Value;
                         existingDetail.LaborCategoryCode = dto.LaborCategoryCode;
                         existingDetail.Hours = dto.Hours;
@@ -310,13 +325,17 @@ namespace SC_LaborReporting.LaborReports
                         projectRoleName: dto.ProjectRoleName ?? "-",
                         productSeriesId: dto.ProductSeriesId
                     );
+                    newDetail.Status = targetStatus;
                     report.Details.Add(newDetail);
                 }
             }
+
             await _reportRepository.UpdateAsync(report);
+
             // 触发自动创建审批记录流
             foreach (var detail in report.Details)
             {
+                // 这里的 if 条件天然地拦截了历史记录 (因为历史记录的 Status 是 Approved，不是 Pending)
                 if (detail.Status == LaborReportStatus.Pending)
                 {
                     var exists = await _approvalStatusRepository.AnyAsync(x => x.LaborReportDetailId == detail.Id);
@@ -326,6 +345,7 @@ namespace SC_LaborReporting.LaborReports
                     }
                 }
             }
+
             if (CurrentUnitOfWork != null)
             {
                 await CurrentUnitOfWork.SaveChangesAsync();

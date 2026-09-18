@@ -19,6 +19,11 @@ public class LaborCategoryDto : EntityDto<Guid>
     public Guid[] DepartmentIds { get; set; }
     public string[] DepartmentFullNames { get; set; } // 用于前端展示部门全称
     public Guid[] ProjectRoleIds { get; set; }
+
+    /// <summary>
+    /// 映射关系
+    /// </summary>
+    public string MappingType { get; set; }
 }
 
 public class CreateUpdateLaborCategoryInput
@@ -31,5 +36,10 @@ public class CreateUpdateLaborCategoryInput
 
     public Guid[] DepartmentIds { get; set; }
     public Guid[] ProjectRoleIds { get; set; }
+    /// <summary>
+    /// 映射关系
+    /// </summary>
+    public string MappingType { get; set; }
+
 }
 

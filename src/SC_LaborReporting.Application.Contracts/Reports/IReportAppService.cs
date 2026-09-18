@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Volo.Abp.Application.Dtos;
 using Volo.Abp.Application.Services;
+using Volo.Abp.Content;
 
 namespace SC_LaborReporting.Reports
 {
@@ -18,5 +19,7 @@ namespace SC_LaborReporting.Reports
         Task<ExportFileDto> ExportDepartmentTableAsync(DepartmentReportQueryDto input);
 
         Task<List<UnsubmittedUserDto>> GetUnsubmittedUsersAsync(UnsubmittedReportQueryDto input);
+
+        Task<IRemoteStreamContent> ExportUserCrossReportAsync(UserReportQueryDto input, bool isFinance = false);
     }
 }

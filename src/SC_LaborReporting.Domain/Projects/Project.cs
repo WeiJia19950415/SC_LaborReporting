@@ -21,6 +21,11 @@ namespace SC_LaborReporting.Projects
         /// </summary>
         public Guid ManagerId { get; set; }
 
+        /// <summary>
+        /// 是否为历史数据项目
+        /// </summary>
+        public bool IsOld { get; set; } = false;
+
         public Project() { }
 
         public Project(Guid id, string name, string code, Guid managerId)

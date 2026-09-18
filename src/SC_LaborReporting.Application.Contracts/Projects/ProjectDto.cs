@@ -9,6 +9,11 @@ namespace SC_LaborReporting.Projects
         public string Name { get; set; }
         public string Code { get; set; }
         public Guid ManagerId { get; set; }
+
+        /// <summary>
+        /// 是否为历史数据
+        /// </summary>
+        public bool IsOld { get; set; } = false;
     }
 
     public class CreateUpdateProjectDto
@@ -23,5 +28,9 @@ namespace SC_LaborReporting.Projects
 
         [Required]
         public Guid ManagerId { get; set; }
+        /// <summary>
+        /// 是否为历史数据
+        /// </summary>
+        public bool IsOld { get; set; } = false;
     }
 }

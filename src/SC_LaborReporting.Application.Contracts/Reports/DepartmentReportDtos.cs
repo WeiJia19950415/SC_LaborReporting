@@ -37,6 +37,8 @@ namespace SC_LaborReporting.Reports
         public string Jobresponsibilities { get; set; }
         public decimal Hours { get; set; }
         public int Status { get; set; }
+
+        public string MappingType { get; set; }
     }
 
     public class ExportFileDto
