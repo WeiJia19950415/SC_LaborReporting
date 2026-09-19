@@ -34,6 +34,14 @@ public static class SC_LaborReportingEfCoreEntityExtensionMappings
                     entityBuilder.HasIndex("NewJobNumber").IsUnique();
                 }
             );
+            ObjectExtensionManager.Instance
+            .MapEfCoreProperty<IdentityUser, string>(
+                "WeComUserId",
+                (entityBuilder, propertyBuilder) =>
+                {
+                    propertyBuilder.HasMaxLength(64); // 设置数据库列的最大长度
+                }
+            );
         });
 
     }

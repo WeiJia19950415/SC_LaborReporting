@@ -51,6 +51,16 @@ public static class SC_LaborReportingModuleExtensionConfigurator
                         options.DefaultValue = "";
                     }
                 );
+
+                user.AddOrUpdateProperty<string>(
+                    "WeComUserId",
+                    property =>
+                    {
+                        // 设置字段最大长度（企业微信UserId一般最长64位）
+                        property.Attributes.Add(new StringLengthAttribute(64));
+                        property.DefaultValue = "";
+                    }
+                );
             });
         });
 
